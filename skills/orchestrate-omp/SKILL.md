@@ -29,7 +29,7 @@ Use the exact names exposed by the live `task` tool; its inventory is authoritat
 | Security verdict | `security-reviewer` | `hi` |
 | External library or API research | `librarian` | `lo` or `med` |
 
-When the live task schema exposes `effort`, match it to the assignment: `lo` for narrow questions, `med` for routine work, and `hi` when ambiguity or consequence justifies it. Otherwise rely on the selected agent's configured model role; do not pass an unavailable field.
+When the live task schema exposes `effort`, match it to the assignment: `lo` for narrow questions, `med` for routine work, and `hi` when ambiguity or consequence justifies it. Otherwise rely on the selected agent's configured model; do not pass an unavailable field.
 
 Honor read-only and blocking markers in the live inventory. Never pass the default worker's name explicitly.
 

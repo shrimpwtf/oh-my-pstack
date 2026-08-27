@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import {
@@ -8,12 +7,12 @@ import {
   readFile,
   readdir,
   rm,
-  stat,
   writeFile,
 } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { tmpdir } from "node:os";
+import { forbiddenBindingsIn, isAllowedRuntimeBinding } from "./portability-bindings.mjs";
 
 const root = resolve(
   process.env.PSTACK_SYNC_ROOT ?? dirname(fileURLToPath(import.meta.url)),
@@ -26,13 +25,11 @@ function git(args, cwd) {
   return execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 }
 
-function hash(value) {
-  return createHash("sha256").update(value).digest("hex");
-}
-
 export function normalizeContent(source) {
   return source
     .replaceAll("~/.cursor/rules/pstack-models.mdc", "$PSTACK_CONFIG (or .pstack/config.md)")
+    .replaceAll("~/.cursor/skills/", "skills/")
+    .replaceAll("~/.cursor/plugins/", "plugins/")
     .replaceAll(".cursor/skills/", "skills/")
     .replaceAll(".cursor/plugins/", "plugins/")
     .replaceAll("subagent_type:", "role:")
@@ -46,11 +43,15 @@ export function normalizeContent(source) {
     .replaceAll(/\bTask (?:subagent|tool)\b/g, "host task runner");
 }
 
-export function isProtectedPath(path) {
+function isProtectedPathFor(lock, path) {
   return (
-    boundaryLock.protectedPaths.includes(path) ||
-    boundaryLock.protectedPrefixes.some((prefix) => path.startsWith(prefix))
+    lock.protectedPaths.includes(path) ||
+    lock.protectedPrefixes.some((prefix) => path.startsWith(prefix))
   );
+}
+
+export function isProtectedPath(path) {
+  return isProtectedPathFor(boundaryLock, path);
 }
 
 async function filesUnder(directory) {
@@ -101,41 +102,93 @@ async function sourceRepository(lock, sourceArg) {
   }
 }
 
-async function sourcePathFor(lock, destination, sourceRoot) {
+async function protectedChanges(lock, sourceRoot, commit) {
+  const sourceRoots = lock.sourceRoots.map((mapping) => mapping.source);
+  let changedSources;
+  try {
+    changedSources = git(
+      ["diff", "--name-only", "--diff-filter=ACDMRTUXB", lock.commit, commit, "--", ...sourceRoots],
+      sourceRoot,
+    ).split("\n").filter(Boolean);
+  } catch {
+    return [
+      ...lock.protectedPaths.map((path) => `${path} (baseline unavailable at ${commit})`),
+      ...lock.protectedPrefixes.map((path) => `${path} (baseline unavailable at ${commit})`),
+    ];
+  }
+
+  const changes = new Set();
+  for (const sourcePath of changedSources) {
+    for (const mapping of lock.sourceRoots) {
+      const prefix = `${mapping.source}/`;
+      if (!sourcePath.startsWith(prefix)) continue;
+      const destination = `${mapping.destination}/${sourcePath.slice(prefix.length)}`;
+      if (isProtectedPathFor(lock, destination)) changes.add(destination);
+    }
+  }
+  return [...changes].sort();
+}
+
+async function managedSnapshot(lock, sourceRoot) {
+  const snapshot = new Map();
   for (const mapping of lock.sourceRoots) {
-    const prefix = `${mapping.destination}/`;
-    if (destination.startsWith(prefix)) {
-      const candidate = join(mapping.source, destination.slice(prefix.length));
-      try {
-        await stat(join(sourceRoot, candidate));
-        return candidate;
-      } catch {
-        // Another source root may own this destination.
+    const sourceDirectory = join(sourceRoot, mapping.source);
+    for (const sourceFile of await filesUnder(sourceDirectory)) {
+      const destinationKey = join(
+        mapping.destination,
+        relative(sourceDirectory, sourceFile),
+      );
+      snapshot.set(destinationKey, normalizeContent(await readFile(sourceFile, "utf8")));
+    }
+  }
+  return snapshot;
+}
+
+async function localManagedPaths(lock) {
+  const paths = new Set();
+  for (const mapping of lock.sourceRoots) {
+    const destinationDirectory = join(root, mapping.destination);
+    let files;
+    try {
+      files = await filesUnder(destinationDirectory);
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") continue;
+      throw error;
+    }
+    for (const path of files) paths.add(relative(root, path));
+  }
+  return paths;
+}
+
+export function portabilityViolations(lock, snapshot) {
+  const violations = [];
+  for (const [destinationKey, source] of snapshot) {
+    if (isProtectedPathFor(lock, destinationKey)) continue;
+    for (const binding of forbiddenBindingsIn(source)) {
+      if (!isAllowedRuntimeBinding(destinationKey, binding)) {
+        violations.push(`${destinationKey}: ${binding}`);
       }
     }
   }
-  return null;
+  return violations;
 }
 
-async function protectedChanges(lock, sourceRoot, commit) {
-  const changes = [];
-  for (const destination of lock.protectedPaths) {
-    const sourcePath = await sourcePathFor(lock, destination, sourceRoot);
-    if (!sourcePath) continue;
-    const latestPath = join(sourceRoot, sourcePath);
+async function managedDrift(lock, snapshot) {
+  const drift = [];
+  for (const [destinationKey, next] of snapshot) {
+    if (isProtectedPathFor(lock, destinationKey)) continue;
     try {
-      const latest = await readFile(latestPath);
-      const baseline = execFileSync(
-        "git",
-        ["show", `${lock.commit}:${sourcePath}`],
-        { cwd: sourceRoot },
-      );
-      if (hash(latest) !== hash(baseline)) changes.push(destination);
+      if (await readFile(join(root, destinationKey), "utf8") !== next) drift.push(destinationKey);
     } catch {
-      changes.push(`${destination} (baseline unavailable at ${commit})`);
+      drift.push(destinationKey);
     }
   }
-  return changes;
+  for (const destinationKey of await localManagedPaths(lock)) {
+    if (!snapshot.has(destinationKey) && !isProtectedPathFor(lock, destinationKey)) {
+      drift.push(`${destinationKey} (stale)`);
+    }
+  }
+  return [...new Set(drift)].sort();
 }
 
 async function applyUpdate(lock, sourceRoot, commit, dryRun) {
@@ -147,35 +200,46 @@ async function applyUpdate(lock, sourceRoot, commit, dryRun) {
     return 2;
   }
 
+  const snapshot = await managedSnapshot(lock, sourceRoot);
+  const violations = portabilityViolations(lock, snapshot);
+  if (violations.length > 0) {
+    console.error("Upstream files require a portable adapter before sync:");
+    for (const violation of violations) console.error(`- ${violation}`);
+    return 3;
+  }
+
   const changed = [];
-  for (const mapping of lock.sourceRoots) {
-    const sourceDirectory = join(sourceRoot, mapping.source);
-    for (const sourceFile of await filesUnder(sourceDirectory)) {
-      const destination = join(
-        root,
-        mapping.destination,
-        relative(sourceDirectory, sourceFile),
-      );
-      const destinationKey = relative(root, destination);
-      if (isProtectedPath(destinationKey)) continue;
-      const next = normalizeContent(await readFile(sourceFile, "utf8"));
-      let current = null;
-      try {
-        current = await readFile(destination, "utf8");
-      } catch {
-        // New upstream file.
-      }
-      if (current === next) continue;
-      changed.push(destinationKey);
-      if (!dryRun) {
-        await mkdir(dirname(destination), { recursive: true });
-        await writeFile(destination, next);
-      }
+  for (const [destinationKey, next] of snapshot) {
+    if (isProtectedPathFor(lock, destinationKey)) continue;
+    const destination = join(root, destinationKey);
+    let current = null;
+    try {
+      current = await readFile(destination, "utf8");
+    } catch {
+      current = null;
     }
+    if (current === next) continue;
+    changed.push(destinationKey);
+    if (!dryRun) {
+      await mkdir(dirname(destination), { recursive: true });
+      await writeFile(destination, next);
+    }
+  }
+
+  for (const destinationKey of await localManagedPaths(lock)) {
+    if (snapshot.has(destinationKey) || isProtectedPathFor(lock, destinationKey)) continue;
+    changed.push(destinationKey);
+    if (!dryRun) await rm(join(root, destinationKey), { force: true });
   }
 
   if (changed.length === 0) {
     console.log(`No managed skill changes for upstream ${commit}.`);
+    if (!dryRun) {
+      await writeFile(
+        lockPath,
+        `${JSON.stringify({ ...lock, commit }, null, 2)}\n`,
+      );
+    }
     return 0;
   }
   console.log(`${dryRun ? "Would update" : "Updated"} ${changed.length} managed files:`);
@@ -202,11 +266,31 @@ export async function main(argv = process.argv.slice(2)) {
     const commit = git(["rev-parse", "HEAD"], source.path);
     console.log(`pinned=${lock.commit}`);
     console.log(`latest=${commit}`);
+    const snapshot = await managedSnapshot(lock, source.path);
+    const violations = portabilityViolations(lock, snapshot);
     if (commit === lock.commit) {
-      console.log("Upstream is already pinned at the latest checked revision.");
-      return 0;
+      const drift = await managedDrift(lock, snapshot);
+      if (violations.length === 0 && drift.length === 0) {
+        console.log("Upstream pin and managed files match the latest checked revision.");
+        return 0;
+      }
+      if (violations.length > 0) {
+        console.error("Pinned upstream files contain unsupported runtime bindings:");
+        for (const violation of violations) console.error(`- ${violation}`);
+      }
+      if (drift.length > 0) {
+        console.error("Managed files differ from the pinned upstream revision:");
+        for (const path of drift) console.error(`- ${path}`);
+      }
+      return 11;
     }
-    if (args.mode === "check") return 10;
+    if (args.mode === "check") {
+      if (violations.length > 0) {
+        console.error("Latest upstream files require a portable adapter:");
+        for (const violation of violations) console.error(`- ${violation}`);
+      }
+      return 10;
+    }
     return await applyUpdate(lock, source.path, commit, args.dryRun);
   } finally {
     if (source.cleanup) await rm(source.cleanup, { recursive: true, force: true });

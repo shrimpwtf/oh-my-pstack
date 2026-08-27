@@ -1,247 +1,208 @@
 ---
 name: pstack-pi
-description: "Pi runtime adapter for poteto-mode. Maps canonical pstack roles and lifecycle protocols to Pi-compatible task agents, batching, isolation, follow-ups, and durable result resources."
+description: "Pi runtime adapter for pstack. Keeps original pstack model roles separate from execution agents and maps lifecycle protocols to Pi-compatible child runs."
 ---
 
 # pstack on Pi
 
-`poteto-mode` is the sole router. It selects the playbook, canonical role, step order, and lifecycle protocol. This adapter translates those choices to Pi-compatible runtimes. It never selects a playbook, repeats the playbook index, or changes a playbook gate.
+`poteto-mode` is the sole workflow router. It selects the playbook, pstack model role, execution role, step order, and lifecycle protocol.
 
-While this skill is active, its role map is the specific pstack execution contract. Generic host instructions remain valid outside pstack work.
+This adapter translates those choices to the active child runtime. It does not collapse pstack model roles into agent defaults.
 
-## Canonical role map
+## Independent role systems
 
-Use the live host's configured names. This reference mapping targets OMP, a
-Pi-based runtime; other hosts must substitute their own names through the runtime
-contract.
+Model roles and execution roles are independent.
 
-| Canonical role | Pi/OMP agent | Contract |
-|---|---|---|
-| `explorer` | `scout` | Read-only repository reconnaissance, trace reduction, narrow audits. |
-| `watcher` | `scout` | Observe one exact generation or external-state transition, then terminate. |
-| `planner` | `designer` | Technical planning, architecture, decomposition, sequencing, and non-visual design candidates. |
-| `designer` | `designer` | Visual, interaction, and product-design candidates. |
-| `reviewer` | `reviewer` | Independent code, protocol, behavioral, or security review. |
-| `researcher` | `librarian` | Source-verified external library, framework, API, protocol, or version research. |
-| `synthesizer` | `reviewer` | Cross-report synthesis, adjudication, and advisory judgment over frozen evidence. |
-| `implementer` | `task` | Bounded implementation or test changes with explicit write ownership. |
-| `owner` | `task` | One coupled multi-step implementation session retained through IRC follow-ups. |
-| `mechanical` | `sonic` | Fully specified low-judgment edits. Ambiguity returns to the root. |
+A pstack model role selects the child model for one workflow step. Examples include `feature`, `bug-fix`, `how explorer`, and `interrogate reviewers`.
 
-The reference OMP roster is closed:
+An execution role selects the child behavior, tools, permissions, context policy, and lifecycle protocol.
 
-```text
-scout
-designer
-reviewer
-security-reviewer
-librarian
-task
-sonic
-```
+The same execution agent can serve several pstack model roles. Each launch still receives the exact configured model for its model role.
 
-A canonically routed task item's `agent` value must be one of those bundled names. Canonical role labels and model aliases are not agent names.
+## Execution role map
 
-`poteto-agent` and `comment-sicko` are custom compatibility agents for direct named seams in imported skills. A direct compatibility call may use that custom agent name; ordinary canonical routing never does.
+The model role remains the visible run identity. The Pi runtime profile is a private capability detail.
 
-### Planning distinction
+| Execution roles | Private Pi profile | Tool contract |
+| --- | --- | --- |
+| `explorer`, `watcher`, `planner`, `designer`, `reviewer`, `synthesizer` | `pstack-runtime-read` | Read-only files and shell verification. |
+| `researcher` | `pstack-runtime-evidence` | Files, shell history, MCP evidence, and web sources. |
+| `implementer`, `owner`, `mechanical` | `poteto-agent` | Bounded file changes and verification. |
 
-The imported warning about a built-in planning subagent describes a source-host mechanism that bypassed the skill contract. This Pi-compatible package has no bundled `plan` agent. Canonical `planner` work uses `designer` with a technical-planning brief and does not pass source-host subagent fields.
+Each profile declares a strict tool list. `pi-subagents` verifies that list before the first model turn.
 
-### Security review
+OMP can map the same execution roles to its available capability profiles.
 
-Use `security-reviewer` for an independent security lane. Keep it read-only and separate from ordinary code review when both are required. A later `reviewer` session may synthesize frozen reports; it does not replace the primary security review.
+Runtime profile selection never selects the pstack model role.
 
-## Task contract
+## Model role routing
 
-The root coordinator performs every `task` call through the host task facility. A child never calls `task`, starts another child, or asks the user directly. Put `Do not call task or start subagents` under `FORBIDDEN` in every child brief.
+On Pi, use `pstack_launch` for one child. Use `pstack_panel` for all entries in one panel role.
 
-Children start without the parent conversation. Every prompt must stand alone. They receive the configured workspace, context files, skills, and approved plan resources supplied by the host.
+The tools read `$PSTACK_CONFIG` when set. Otherwise, they read `.pstack/config.md` from the target project.
 
-### One task
+The router expands both shared upstream labels. It resolves the exact model role from the active workflow.
 
-When the flat schema is active:
+The router performs these operations for each choice:
+
+1. Parse the base model, thinking level, and `[fast]` marker.
+2. Verify the base model against the live inventory.
+3. Select the execution agent from the independent execution role.
+4. Pass the complete model through the per-run `model` field.
+5. Pass fast mode through the separate `fast` field.
+6. Record the requested route in the Pi session ledger.
+7. Record the observed child data after completion.
+
+The router resolves `inherit-parent` and `auto` to the active parent model and thinking level. It then passes that concrete value per run.
+
+If the model role is absent, stop the dispatch. If the model is unavailable, stop the dispatch. Do not use an agent default.
+
+A panel value contains one entry per child. The same execution agent can serve each model perspective.
+
+Do not write model or effort values to host agent settings. The pstack configuration remains the model policy.
+
+## Child contract
+
+The root coordinator starts every child. A child never starts another child or asks the user directly.
+
+Every child receives a standalone brief. The router adds the model role, workflow name, role prompt, execution role, model, and fast state.
+
+The visible run label uses the model role. The private runtime profile remains in the route ledger for audits.
+
+For one Pi child, call `pstack_launch`:
 
 ```json
 {
-  "name": "parser-overflow-worker",
-  "agent": "task",
-  "task": "GOAL\n...\n\nROLE\n...\n\nSCOPE\n...\n\nCONTEXT\n...\n\nACCEPTANCE\n...\n\nVERIFY\n...\n\nTIMEBOX\n...\n\nFORBIDDEN\n...\n\nREPORT\n...\n\nSTANDING\n...",
-  "isolated": true
+  "modelRole": "bug-fix",
+  "executionRole": "implementer",
+  "task": "GOAL\n...\n\nSCOPE\n...\n\nACCEPTANCE\n...\n\nVERIFY\n...\n\nFORBIDDEN\n...\n\nREPORT\n...",
+  "context": "fork",
+  "worktree": true
 }
 ```
 
-When batch mode is active, use a one-item `tasks[]` call instead of inventing a per-call batch switch.
-
-Use `isolated: true` for a writer that needs a dedicated worktree. Read the returned isolation metadata and verify the patch, branch, or applied change the host reports. Use a non-isolated session for a long-lived owner that must accept follow-ups in the same workspace.
-
-### Batched panel
-
-Use one batch call for independent participants:
+For a Pi panel, call `pstack_panel`:
 
 ```json
 {
-  "context": "Shared immutable repository, base SHA, artifacts, constraints, and verification context.",
+  "modelRole": "how critics",
+  "executionRole": "reviewer",
   "tasks": [
-    {
-      "name": "candidate-a",
-      "agent": "designer",
-      "task": "Standalone brief for architecture candidate A.",
-      "isolated": false
-    },
-    {
-      "name": "candidate-b",
-      "agent": "designer",
-      "task": "Standalone brief for architecture candidate B.",
-      "isolated": false
-    }
-  ]
+    "Review the frozen architecture against the supplied rubric.",
+    "Review the frozen architecture against the supplied rubric.",
+    "Review the frozen architecture against the supplied rubric.",
+    "Review the frozen architecture against the supplied rubric."
+  ],
+  "context": "fresh"
 }
 ```
 
-Each `name` is unique. `context` contains common immutable material. Each item still names its exact role, slice, acceptance criteria, verification, forbidden work, and report contract.
+The returned run identifier belongs to `pi-subagents`. Use `subagent_wait` or the `subagent` status action. Then call `pstack_status`. Accept the result only when success is true and both failure lists are empty.
 
-Start every participant in one batch before consuming any verdict. Separate writers with isolated workspaces or disjoint output paths. Freeze candidate artifacts before starting reviewers. Freeze reviewer reports before starting a separate synthesizer session.
-
-### Background completion and follow-ups
-
-Background task results arrive through the host's async result delivery. Record the returned job and agent identifiers. The preview may be truncated.
-
-- Read the full result from `agent://<id>`.
-- Read the session transcript from `history://<id>` when the report is incomplete, ambiguous, or suspicious.
-- Use `hub` with `op: "jobs"` to inspect jobs and `op: "wait"` with `ids` to wait for specific job IDs.
-- Use `hub` with `op: "list"` to inspect peers and `op: "send"` with `to` for one in-scope correction, answer, authorization, or next coupled phase.
-- Use `hub` with `op: "cancel"` and exact job `ids` for stale, superseded, or scope-breaching work.
-- A follow-up to a parked session revives the same session when the host reports that capability.
-- Never steer a reviewer toward a preferred conclusion.
-- Use only operations exposed by the live `hub` schema. Do not invent lifecycle operations.
-- Ignore duplicate terminal deliveries and reject stale artifact generations.
-
-A task result is evidence, not completion. The root inspects the artifact and runs verification.
+Use a managed worktree for a writer that needs isolated files. Use a fresh context for independent review and cross-provider children. Use retained context only for one coupled owner.
 
 ## Brief shape
 
-A dispatch is forbidden until its brief contains:
+A dispatch is forbidden until its brief contains these sections.
 
-**GOAL**  
-One-sentence outcome executable by a stranger.
+**Goal.** State one outcome that a stranger can execute.
 
-**ROLE**  
-The canonical role, mapped OMP agent, authority, and expected stance.
+**Model role.** Name the exact pstack configuration key and selected choice.
 
-**SCOPE**  
-Writable and non-writable paths, exact slice or race arm, worktree and branch where applicable, and every output path. State the one-writer assignment.
+**Execution role.** Name the behavior role, mapped host agent, authority, and expected stance.
 
-**CONTEXT**  
-Repository root, relevant source paths, base SHA, frozen artifacts, active skill and playbook paths, settled assumptions, and known gotchas.
+**Scope.** Name writable paths, read-only paths, branch, worktree, and output path. Assign one writer.
 
-**ACCEPTANCE**  
-Checkable observable outcomes, one per line.
+**Context.** Name the repository root, source paths, base SHA, frozen artifacts, settled assumptions, and known risks.
 
-**VERIFY**  
-Exact commands, fixtures, runtime probes, comparison baselines, environment requirements, and known false-positive or false-negative risks.
+**Acceptance.** List observable outcomes.
 
-**TIMEBOX**  
-A rough cap. At the cap, return partial evidence and stop instead of broadening scope.
+**Verify.** Give exact commands, fixtures, probes, baselines, and environment requirements.
 
-**FORBIDDEN**  
-At minimum: no child task calls; no subagent spawning; no out-of-scope fixes; no unrequested migrations; no shared-path edits outside ownership; no merge; no direct user questions; no completion claim without executed verification.
+**Timebox.** Set a rough cap. Require a partial evidence report at the cap.
 
-**REPORT**  
-Require `PASS | ISSUES | BLOCKED`, semantic session name, branch and exact SHAs where applicable, verdict and evidence, changed files or artifacts, actual verification commands and results, deviations, unresolved risks, and parent actions.
+**Forbidden.** Forbid child delegation, out-of-scope fixes, unrequested migrations, shared-path edits, merges, direct user questions, and unverified completion claims.
 
-**STANDING**  
-Copy the active playbook's standing policy text verbatim when it supplies one.
+**Report.** Require `PASS`, `ISSUES`, or `BLOCKED`. Require the model role, resolved model, effort, branch, SHA, changed files, commands, results, deviations, and residual risks.
 
-## Canonical protocols
+**Standing policy.** Copy the active playbook policy when it supplies one.
+
+## Lifecycle protocols
 
 ### Bounded session
 
-1. Author one standalone brief.
-2. Start one task with the mapped agent.
-3. Record its semantic name, agent ID, job ID, role, scope, isolation mode, base SHA, and expected artifact.
-4. Consume the async result when delivered.
-5. Read `agent://<id>`; inspect `history://<id>` when needed.
-6. Send one IRC correction only within the same unit.
-7. Inspect the artifact and independently run the promised verification.
-8. Accept the unit only after the parent verifies the reported output.
+1. Resolve the model role.
+2. Select the execution role.
+3. Author one standalone brief.
+4. Call `pstack_launch` with the model role, execution role, and brief.
+5. Record the returned run ID, role pair, scope, base SHA, and expected artifact.
+6. Read the complete result and transcript when required.
+7. Call `pstack_status` with the returned run ID.
+8. Reject a route with false success or a nonempty failure list.
+9. Inspect the artifact and run parent verification.
+10. Accept the unit only after the parent verifies it.
 
-A role or unit change requires a fresh task.
+A model role, execution role, or unit change starts a fresh child.
 
 ### Panel
 
-1. Partition independent slices or race arms with one task per participant.
-2. Start every participant in one batch before consuming any result.
-3. Track participants by semantic name and identifiers, never arrival order.
-4. Wait for every required result through `hub` `op: "wait"`, or cancel it explicitly through `hub` `op: "cancel"`.
-5. Ignore duplicate terminal delivery.
-6. Freeze implementation artifacts, branches, head SHAs, reports, and hashes.
-7. Start every independent reviewer in a new batch only after the candidates are frozen.
-8. Freeze verdicts before starting a separate `reviewer` when synthesis is needed.
-9. Treat synthesis as advice. The root selects and verifies.
+1. Resolve the panel model role.
+2. Create one task per configured entry.
+3. Select one shared execution role for `pstack_panel`.
+4. Call `pstack_panel` to start every participant concurrently.
+5. Track participants by stable key, model, and run ID.
+6. Wait for every required result or cancel it explicitly.
+7. Call `pstack_status` before result acceptance.
+8. Reject a result with a mismatched model or stale generation.
+9. Freeze candidate artifacts before starting judges.
+10. Freeze judge reports before synthesis.
+11. Treat synthesis as advice. The root selects and verifies.
 
-Do not mix implementers, reviewers, or synthesizers in one session. Do not let reviewers race a moving head.
+Do not mix writers, reviewers, or synthesizers in one child session. Do not let a reviewer inspect a moving head.
 
 ### Long-lived owner
 
-1. Start one non-isolated `task` session with the complete owner brief.
-2. Record its agent ID and reuse it. Do not start a sibling owner for the same unit.
-3. The owner works only in its assigned branch and paths and never starts children.
-4. Send a `hub` `op: "send"` follow-up only for the next coupled phase, an in-scope correction, an answer resolved from evidence, or explicit authorization.
-5. Require a terminal report at each verification boundary.
-6. Independently verify the boundary before authorizing the next phase.
-7. Stand down on ownership violation, stale generation, or terminal scope breach.
+1. Resolve the model role once.
+2. Call `pstack_launch` once with the `owner` execution role and complete brief.
+3. Record its run ID.
+4. After each terminal report, call `pstack_followup` with that run ID and the complete follow-up brief.
+5. Replace the recorded run ID with the new run ID from `pstack_followup`.
+6. Keep the owner inside its assigned branch and paths.
+7. Require a terminal report at each verification boundary.
+8. Verify each boundary before the next follow-up.
+9. Stop on ownership violation, stale generation, or model drift.
 
 ### One-shot watcher
 
-1. Start one background `scout` task.
-2. Put the exact branch, head SHA, generation, watched predicate, stop predicate, and timebox in the brief.
-3. Require one meaningful event and a terminal report.
-4. Discard a report whose generation no longer matches.
-5. Start a fresh watcher for each new generation.
-6. Stand down when the stop predicate is met or the work is superseded.
+1. Resolve the watcher model role when the workflow defines one.
+2. Call `pstack_launch` with the `watcher` execution role.
+3. Put the exact branch, SHA, generation, predicate, and timebox in the brief.
+4. Require one meaningful event and a terminal report.
+5. Reject a stale generation or model mismatch.
+6. Start a fresh watcher for each new generation.
 
-A watcher observes. It does not fix, merge, authorize, or silently follow a changed head.
+A watcher observes. It does not fix, merge, or authorize.
 
 ## Interactions and decisions
 
-Children resolve uncertainty from source, standing policy, frozen evidence, or the brief. Otherwise they use the safest reversible interpretation and report the assumption, or return `BLOCKED` with the exact missing decision and evidence gathered.
+Children resolve uncertainty from source, standing policy, frozen evidence, or the brief.
 
-The root resolves a child question and sends the answer through `hub` `op: "send"` to the existing agent. Ask the user only for genuine product preference, unavailable authority, or an irreversible action not covered by standing orders.
+If evidence cannot resolve an ambiguity, use the safest reversible interpretation and report it. Return `BLOCKED` when the missing decision prevents safe work.
+
+The root answers child questions through the host control channel. Ask the user only for product preference, unavailable authority, or an uncovered irreversible action.
 
 ## Ownership and verification
 
-- One writer per branch, worktree, mutable state, and output path.
-- Separate sessions own implementation, review, judgment, and synthesis.
-- A task stays inside its assigned unit and role.
-- Isolate concurrent writers unless their outputs are structurally disjoint.
-- A worker's report never verifies its own work.
-- Record branch, base SHA, and exact head SHA or artifact generation.
-- Prefer behavioral proof over type-check-only evidence.
-- A new commit, restack, conflict resolution, or applied patch creates a new generation that voids the prior verdict.
-- Judges and synthesizers advise. The root owns selection, user interaction, external writes, merges, deletion, and final truth.
-- Claim model independence only from returned resolved-model and fallback metadata.
-
-## Model routing
-
-OMP resolves a task agent through its current settings, including `modelRoles`, `task.agentModelOverrides`, the agent definition, and normal fallback. Agent selection and model selection are separate decisions.
-
-Do not put a `model` field in a task item. Do not use a model alias as the `agent` value. Configure routing through the installed OMP settings and report the actual resolved model when independence matters.
-
-Recommended role aliases:
-
-| OMP agent | Recommendation |
-|---|---|
-| `scout` | `@smol` |
-| `designer` | `@designer` |
-| `reviewer` | `@advisor` |
-| `security-reviewer` | `@advisor` |
-| `librarian` | `@smol` |
-| `task` | `@task` or a stronger implementation role |
-| `sonic` | `@tiny` or `@smol` |
-
-These are recommendations, not task payload fields.
+- Assign one writer per branch, worktree, mutable state, and output path.
+- Separate implementation, review, judgment, and synthesis sessions.
+- Isolate concurrent writers unless outputs are structurally disjoint.
+- Treat a child report as evidence, not proof.
+- Record the branch, base SHA, head SHA, and artifact generation.
+- Prefer behavior proof over type checks.
+- Treat a new commit, restack, or applied patch as a new generation.
+- Reject a configured model role result when runtime fallback changes the model.
+- Keep user interaction, external writes, merges, deletion, and final truth at the root.
 
 ## Writing
 
-Apply `unslop` to every reply, brief, report, review, task dispatch, commit message, and agent-facing edit.
+Apply `unslop` to every brief, report, review, task dispatch, commit message, and agent-facing edit.

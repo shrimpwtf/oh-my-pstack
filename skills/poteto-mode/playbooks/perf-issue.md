@@ -13,12 +13,12 @@
    - **Redundancy.** The wait hangs on one slow instance or attempt. Duplicate the work (replicas, hedged requests, speculative execution) and take the fastest result. This trades extra load for lower tail latency, so the trace has to show the wait dominates and the system has headroom; duplication without that tradeoff only adds load.
    - **Lazy evaluation.** Cost lands on results that are never used or not needed yet (eager init on the boot path, rendering offscreen items). Defer the work until first use.
    - **Scheduling.** The work must happen, but not during the interactive moment. Move it to where nobody is waiting: idle callbacks, a background warmup after boot, precompute before the user arrives, cleanup after the frame commits. Distinct from Lazy (later-when-needed): Scheduling often runs the work *earlier* than the hot moment, or in its shadow. The win is perceived latency, so measure the interactive path, not total work done.
-3. Plan the fix from the trace. If it crosses a function boundary, `architect` first. Delegate implementation through the active adapter's **Bounded session** protocol with canonical `implementer` role, or do it yourself if delegation is unavailable.
+3. Plan the fix from the trace. If it crosses a function boundary, `architect` first. Resolve the `perf-issue` pstack model role. On Pi, call `pstack_launch` with execution role `implementer` and the complete brief. The router binds the configured per-run `model`. If the router is unavailable, report the capability gap before direct implementation.
    Apply the **sequence-verifiable-units** principle skill, verifying each attempt before trying the next.
 4. Parse and compare the artifacts (JSON to sqlite, diff). "Inconclusive" or wrong-surface is not a pass; flag it.
 5. Cite the measurement in the PR.
 6. Run **Opening a PR**.
 
-For sustained improvement against a metric rather than a one-off fix, use the Hillclimb playbook (`skill://poteto-mode/playbooks/hillclimb.md`).
+For sustained improvement against a metric rather than a one-off fix, use the Hillclimb playbook (`playbooks/hillclimb.md`).
 
 **Reply:** baseline number, post-fix number, delta, artifact path.

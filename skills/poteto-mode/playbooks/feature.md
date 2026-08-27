@@ -9,7 +9,7 @@
    - **Independent workstreams.** Disjoint files, services, or layers parallelize. Shared writes serialize.
    - **Shared mutable state.** Default to splitting the target (the **separate-before-serializing-shared-state** principle skill). Serialize only for real invariants.
    - **Smallest safe decomposition.** If one worker is best, name why.
-4. Delegate code-writing through the active adapter's **Bounded session** protocol with canonical `implementer` role and a specific scope (file paths, named data shape and operations, tests it owns, explicit no-touch zones). You stay the lead: review every line and own integration. One writer for tightly coupled code; parallel writers only on structurally disjoint modules with isolated worktrees.
+4. Resolve the `feature` pstack model role. On Pi, call `pstack_launch` with execution role `implementer` and a complete brief. Set `worktree` for an isolated writer. The router binds the configured per-run `model`. Give the child specific paths, operations, tests, and no-touch zones. You stay the lead and own integration. Use one writer for tightly coupled code. Use parallel writers only for structurally disjoint modules.
 5. Verify on the matching surface. "Inconclusive" or wrong-surface is not a pass; flag it.
 6. Rebase into small, ordered commits; stack follow-ups.
    Use the **sequence-verifiable-units** principle skill, building, verifying, and committing each small unit before the next.

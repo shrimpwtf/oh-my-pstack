@@ -5,7 +5,9 @@ description: "Use for 'why does X work this way', 'why we picked Y', design rati
 
 # Why
 
-Follow the [portable runtime contract](../pstack-pi/references/runtime.md) for tool discovery, researcher and synthesizer roles, model choices, concurrency, and unavailable-capability reporting.
+Follow the [portable runtime contract](../pstack-pi/references/runtime.md) for tool discovery, execution roles, model roles, concurrency, and unavailable-capability reporting.
+
+`why investigators` and `why synthesizer` are pstack model roles. On Pi, route each child through `pstack_launch`. The router binds the concrete per-run `model`. Select execution roles independently.
 
 Investigate the motivation and intent behind code. Why was it built this way? What edge cases were considered? What product, business, or operational constraints shaped the design? What alternatives were rejected, and why?
 
@@ -85,7 +87,7 @@ git log --oneline -20 -- <file>
 git log -1 --format=%B <commit>
 ```
 
-Pull PR bodies and discussion via `gh` for any substantive commits:
+If `gh` is available and authenticated, pull PR bodies and discussion for substantive commits:
 
 ```bash
 gh pr view <number> --json title,body,author,createdAt,mergedAt,labels,closingIssuesReferences,comments,reviews
@@ -111,13 +113,13 @@ Map each available MCP to one evidence category:
 6. Error / exception tracking
 7. Product analytics warehouse
 
-Source control is always available through git and `gh`. For the other six, classify using the MCP name, server instructions, tool names, and resource descriptors. If an MCP could fit more than one category, choose the one matching its primary evidence. Record ambiguous cases in the coverage map.
+Local source history is available when the workspace is a Git repository. Treat `gh` and remote PR history as separate optional capabilities. For the other six, classify using the MCP name, server instructions, tool names, and resource descriptors. If an MCP could fit more than one category, choose the one matching its primary evidence. Record ambiguous cases in the coverage map.
 
 Aim for a complete **coverage map**, not a minimal one. A null result from an issue tracker is evidence the decision was not ticketed, a useful fact in itself. Document the null, don't skip the search.
 
 Launch all matching investigators in a single message so they run concurrently. One investigator per category lets each specialize in one tool's query vocabulary and result shape. Don't ask one agent to cover multiple MCPs.
 
-For each category, use the configured `why investigators` choice when present; otherwise use the canonical `researcher` role. Give investigators access to the matching host tool while forbidding writes in every standalone brief. If the host cannot combine a read-only repository posture with external-tool access, preserve tool access and enforce no writes in the brief rather than assuming a vendor-specific mode.
+Use execution role `researcher` for each category. On Pi, call `pstack_launch` once per category with model role `why investigators`. Give each investigator the matching host tool. Forbid writes in every standalone brief. If the host cannot combine read-only repository access with external tools, preserve tool access and forbid writes in the brief.
 
 Each investigator gets:
 1. The base prompt from `references/investigator-prompt.md`
@@ -159,7 +161,7 @@ If your scope assessment suggests a single-commit trivial target where the PR de
 
 ## Step 4. Synthesize
 
-Launch one `synthesizer` child, using the configured `why synthesizer` choice when present. Give it the host tools needed to spot-verify citations while forbidding repository writes in its standalone brief.
+Launch one child with execution role `synthesizer`. On Pi, call `pstack_launch` with model role `why synthesizer`. Give it the host tools required for citation verification. Forbid repository writes in its standalone brief.
 
 The synthesizer gets:
 1. The investigator findings, including any null results and any categories skipped with justification

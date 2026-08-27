@@ -1,179 +1,113 @@
 ---
 name: setup-pstack
-description: Configure which host-supported roles or models pstack uses per workflow role. Detects the live host inventory and writes portable project-local configuration. Use for /setup-pstack, "configure pstack models", or changing pstack's role choices.
+description: Configure the model for each original pstack workflow role. Detects the live host inventory and writes one portable project configuration without changing host agent settings. Use for /setup-pstack, "configure pstack models", or changing pstack model choices.
 ---
 
 # Setup pstack
 
 Follow the [portable runtime contract](../pstack-pi/references/runtime.md) throughout this setup.
 
-Write the optional pstack configuration at `$PSTACK_CONFIG` when that variable is set; otherwise use `.pstack/config.md` in the current project. This is an override layer, not a requirement. Never write to a vendor-specific home directory.
+If `$PSTACK_CONFIG` is set, write the complete policy at that path. Otherwise, write `.pstack/config.md` in the current project. The environment path replaces the project path. The two files do not form layers.
 
-## Steps
+Model roles and execution roles are independent. A pstack model role selects a model for one workflow step. A host execution role selects the child prompt, tools, permissions, and context.
 
-Model discovery and model assignment are different capabilities. A model listed by
-`pi --list-models` is available to the current Pi process, but that does not mean a
-workflow can send work to it. Per-role assignment also requires a host task or
-subagent facility that accepts a model choice. Native Pi intentionally does not
-include subagents. Do not claim that a role was assigned when that facility is
-absent.
+## 1. Verify model delegation
 
-### Pi delegation prerequisite
+Detect both capabilities:
 
-For native Pi, recommend the maintained `pi-subagents` package when the user wants
-parallel workers or per-role models:
+1. Enumerate the models available to the current host.
+2. Select a model for each child launch.
 
-```bash
-pi install npm:pi-subagents
-```
+For Pi, use `pi --list-models` for the model inventory. Require `pstack_launch`, `pstack_panel`, `pstack_followup`, `pstack_status`, and the `subagent` tool. Recommend `pi install npm:pi-subagents` when the `subagent` tool is absent. Tell the user to restart Pi. Tell the user to run `/subagents-doctor` and `/pstack-doctor` after installation.
 
-Tell the user to restart Pi after installation, then run `/subagents-doctor`.
-Continue setup only when the `subagent` tool and the expected agents are visible.
-The package supplies the delegation facility; it does not choose pstack's model
-policy by itself.
+Use the live host inventory. Do not copy model identifiers from examples. Do not write configuration when the host cannot select a model for each child.
 
-### OpenCode delegation prerequisite
+For Pi, record concrete choices as `provider/model-id:thinking` when the model supports effort control. Pi supports `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, and `max`. The base `provider/model-id` must exist in the live inventory.
 
-OpenCode has its own native primary and subagent agents. Do not install
-`pi-subagents` or write Pi-specific settings when the current host is OpenCode.
-Use the agents and concrete `provider/model-id` choices reported by OpenCode, and
-keep their model configuration in the host's `opencode.json` or
-`opencode.jsonc`. If OpenCode does not expose a usable subagent, report that
-limitation instead of substituting a Pi-specific mechanism.
+Add `[fast]` after a concrete choice to request native Pi fast mode. The deterministic router supports fast mode for `openai-codex/gpt-5.6-luna` and `openai-codex/gpt-5.6-sol`. Do not add `[fast]` to `inherit-parent`, `auto`, or another model.
 
-### 1. Detect available choices
+Use the exact child model value that another host accepts. Preserve an effort suffix only when that host supports it.
 
-Detect both of these independently:
+`inherit-parent` and `auto` both select the parent model. The runtime adapter must use the host's explicit inheritance mechanism when omission can activate a host default.
 
-1. The model IDs the current host actually exposes.
-2. Whether the current host exposes a task or subagent facility that can select a
-   model for each child.
+## 2. Load the current configuration
 
-For Pi, `pi --list-models` is the model inventory and the `provider/model-id` form
-is the concrete value to record. With `pi-subagents` installed, the `subagent`
-tool and `/subagents-doctor` establish the delegation inventory. The live host
-inventory is authoritative. Never copy a vendor slug from prose or guess that a
-model is available.
+Read the selected configuration path when it exists. Treat each existing value as the current choice.
 
-If the host has a task facility but cannot enumerate models, use only a host role
-mapping that the facility documents. Do not ask the user to invent a raw slug.
-`inherit-parent` is valid only when the host can pass the current model to a child.
+A line names a pstack model role. It does not name a host agent. Panel values after the colon contain one entry per child.
 
-### 2. Load current state
+Expand the two shared upstream labels exactly:
 
-Read the selected configuration path when it exists and treat its concrete values
-as current choices. If it contains only portable role aliases from a host without
-per-child delegation, treat those aliases as stale inactive state and start from
-the detected models instead of carrying them into Pi's agent overrides.
+- `feature, refactoring` configures `feature` and `refactoring`.
+- `reflect judgment, divergent, synthesizer` configures `reflect judgment`, `reflect divergent`, and `reflect synthesizer`.
 
-### 3. Map and confirm
+Do not derive model choices from host agent names such as `scout`, `worker`, `reviewer`, or `oracle`.
 
-If both model inventory and per-child model selection are available, show every
-workflow role with its current concrete `provider/model-id` choice. Mark an
-explicit model absent from the live inventory as needing a replacement. Ask the
-user to accept or change the choices, offering only detected model IDs and
-`inherit-parent` when supported. Use the host's structured interaction tool when
-available; otherwise ask one focused question in normal conversation.
+## 3. Confirm every model role
 
-If the host exposes models but no task or subagent facility, stop model mapping
-with an explicit capability report. For native Pi, recommend
-`pi install npm:pi-subagents`, a restart, and `/subagents-doctor`. For OpenCode,
-explain that its native agents are not visible or configured and point the user
-to the host's agent configuration. For any other host, name the missing
-capability without proposing a vendor-specific substitute. Say that no pstack
-role can receive a different model in this session and do not present the
-portable defaults as an assignment or overwrite an existing role configuration
-with inactive aliases.
+Show every line from the configuration shape below. Mark a concrete model that is absent from the live inventory.
 
-For panel roles (`how critics`, `arena runners`, `arena cross-judge pool`, `architect runners`, and `interrogate reviewers`), one child runs per entry, so list length controls fan-out. Prefer diversity for judgment-sensitive panels. `swarm workers` is the default choice for every worker unless a race assigns a different choice per arm.
+Ask the user to accept the current values or change specific lines. Offer only detected models, `inherit-parent`, and `auto`.
 
-### 4. Validate
+For panel roles, including `swarm workers`, list length controls fan-out:
 
-Every explicit model written must be present in the detected host inventory.
-Role aliases pass only when the host task facility documents those aliases.
-`inherit-parent` passes only when the host can pass the current model to a child. If
-a selected explicit model is unavailable, stop and ask for a replacement. Never
-write a configuration that requires another host.
+- `how critics`
+- `arena runners`
+- `arena cross-judge pool`
+- `architect runners`
+- `interrogate reviewers`
 
-### 5. Write the configuration
+`swarm workers` accepts one or more models. Use `modelNumber` on each `pstack_launch` to select a race arm.
 
-When the host supports per-child selection, create the parent directory when
-needed and overwrite the selected file so re-runs remain idempotent. Use concrete
-detected model IDs in this shape. Replace every placeholder with a model the
-current host reported, and use `inherit-parent` only when the host supports it:
+## 4. Validate the choices
+
+Verify every concrete base model against the live inventory. Verify each effort level when the host reports supported levels. On Pi, run `/pstack-doctor` after the write.
+
+If the host can run a cheap model probe, probe every distinct concrete choice once. Probe each `[fast]` choice with fast mode active. Report authentication, quota, priority-service, and unsupported-effort failures. Ask for a replacement instead of writing an unusable choice.
+
+Accept `inherit-parent` or `auto` only when the child runtime can inherit the current parent model.
+
+## 5. Write only the pstack configuration
+
+Create the parent directory when required. Overwrite the selected file so repeated setup stays idempotent.
+
+Keep these original model role lines and labels:
 
 ```md
-# pstack role and model configuration
-# Values are concrete provider/model-id choices confirmed by the host.
-feature, refactoring: <implementer-model>
-bug-fix: <reviewer-model>
-perf-issue: <reviewer-model>
-hillclimb: <implementer-model>
-judgment and prose: <reviewer-model>
-hardest tasks: inherit-parent
+# pstack model configuration
+# Values are concrete child model choices confirmed by the active host.
+feature, refactoring: <code-model>
+bug-fix: <instruction-model>
+perf-issue: <instruction-model>
+hillclimb: <instruction-model>
+judgment and prose: <judgment-model>
+hardest tasks: <judgment-model>
 how explorer: <explorer-model>
-how explainer: <synthesizer-model>
-how critics: <reviewer-model>, <planner-model>, <designer-model>, inherit-parent
-why investigators: <researcher-model>
-why synthesizer: <synthesizer-model>
-reflect tooling: <researcher-model>
-reflect judgment: <reviewer-model>
-reflect divergent: <designer-model>
-reflect synthesizer: <synthesizer-model>
-arena runners: <designer-model>, <planner-model>, <implementer-model>, inherit-parent
-arena cross-judge pool: <reviewer-model>, <planner-model>, <designer-model>, inherit-parent
-swarm workers: <implementer-model>
-architect runners: <designer-model>, <planner-model>, <reviewer-model>, inherit-parent
-interrogate reviewers: <reviewer-model>, <planner-model>, <designer-model>, inherit-parent
+how explainer: <judgment-model>
+how critics: <judgment-model>, <instruction-model>, <explorer-model>, <strongest-model>
+why investigators: <explorer-model>
+why synthesizer: <judgment-model>
+reflect tooling: <instruction-model>
+reflect judgment, divergent, synthesizer: <judgment-model>
+arena runners: <judgment-model>, <instruction-model>, <explorer-model>, <strongest-model>
+arena cross-judge pool: <judgment-model>, <instruction-model>, <explorer-model>, <strongest-model>
+swarm workers: <code-model>[, <alternate-model>...]
+architect runners: <judgment-model>, <instruction-model>, <explorer-model>, <strongest-model>
+interrogate reviewers: <judgment-model>, <instruction-model>, <explorer-model>, <strongest-model>
 ```
 
-For Pi with `pi-subagents`, also preserve unrelated keys and update the project's
-`.pi/settings.json` with the concrete model assignments for the discovered
-subagent names. Use this mapping unless the user chooses different agents:
+Replace every placeholder with a confirmed concrete choice. For Pi, valid values resemble `openai-codex/gpt-5.6-sol:max` and `openai-codex/gpt-5.6-luna:xhigh [fast]`.
 
-| pstack role | pi-subagents agent |
-| --- | --- |
-| `explorer`, `watcher` | `scout` |
-| `researcher` | `researcher` |
-| `implementer`, `mechanical` | `worker` |
-| `reviewer` | `reviewer` |
-| `planner`, `designer`, `synthesizer` | `oracle` |
-| `owner` | `delegate` |
+Do not write host agent settings. Do not create model mappings for host agents. Existing host settings remain under user control.
 
-Write the selected IDs under `subagents.agentOverrides.<agent>.model`:
+## 6. Confirm the result
 
-```json
-{
-  "subagents": {
-    "agentOverrides": {
-      "scout": { "model": "<explorer-model>" },
-      "researcher": { "model": "<researcher-model>" },
-      "worker": { "model": "<implementer-model>" },
-      "reviewer": { "model": "<reviewer-model>" },
-      "oracle": { "model": "<planner-model>" },
-      "delegate": { "model": "<owner-model>" }
-    }
-  }
-}
-```
+Report the exact configuration path. List each model role line and its selected value.
 
-For OpenCode, do not write `.pi/settings.json`. Keep the concrete model choices in
-the user's existing `opencode.json` or `opencode.jsonc`, and use the live
-OpenCode agent names in the pstack role map. Preserve unrelated configuration.
+State that `pstack_launch` and `pstack_panel` resolve each configured value. State that the router passes the model through the child launch `model` field. State that `[fast]` becomes the separate `fast: true` field. State that configuration does not create models, agents, permissions, or delegation facilities.
 
-### 6. Confirm
+If the host lacks per-child model selection, report that no configuration was written. Name the missing capability.
 
-If a concrete configuration was written, tell the user the exact path and list
-the model IDs assigned to each role family. For Pi, name both `.pstack/config.md`
-and `.pi/settings.json`, and tell the user to run `/subagents-models` to inspect
-the live mapping. For OpenCode, name the `opencode.json` or `opencode.jsonc`
-path used. State that configuration does not create models, child agents,
-permissions, or delegation facilities.
+## 7. Offer a verification skill
 
-If the host lacks per-child model selection, report that no role configuration was
-written or activated. Tell the user which model is active and how to switch the
-single Pi session model.
-
-### 7. Offer a verification skill (optional)
-
-Check whether the project has a way to drive the real app for proof, such as a `verify-*` skill or an existing harness. If not, offer once to invoke the sibling **create-verification-skill** skill. On no, move on without pushing.
+Check whether the project has a real application verification skill or an existing test harness. If neither exists, offer the sibling **create-verification-skill** skill once.

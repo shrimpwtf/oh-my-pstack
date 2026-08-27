@@ -6,7 +6,9 @@ disable-model-invocation: true
 
 # Arena
 
-Follow the [portable runtime contract](../pstack-pi/references/runtime.md) for child briefs, parallel execution, panels, models, and fallbacks.
+Follow the [portable runtime contract](../pstack-pi/references/runtime.md) for child briefs, execution roles, model roles, panels, and fallbacks.
+
+`arena runners` and `arena cross-judge pool` are pstack model roles. Panel position does not select an execution role.
 
 Fan out N parallel attempts at the same task. Read every candidate end to end. Pick the strongest as the base. Graft the best ideas from the others into it. Verify the synthesized result.
 
@@ -27,12 +29,12 @@ The N candidates will receive the same prompt, so the prompt is the contract. Ge
 
 1. State the artifact each candidate is producing.
 2. Derive the rubric. State what success looks like for *this* task, then turn it into 3-6 concrete gradeable criteria. Concrete: `Adds a --dry-run flag that skips writes`. Vague: `code is correct`. The rubric is the picker's tool in Phase D; candidates only see the task.
-3. Pick the runners. Use the `arena runners` panel from the portable pstack configuration when present. Otherwise use a diverse host-supported panel drawn from `designer`, `planner`, `reviewer`, and `inherit-parent`. Spawn more when the arena covers multiple design directions. Repeating one host-supported choice N times is valid when the work is generation-bound rather than judgment-sensitive.
+3. Resolve the `arena runners` model role. Use one child per configured model entry. Select one execution role from the artifact contract. On Pi, call `pstack_panel` with one task per configured entry. If the panel is absent, stop the Pi dispatch. Repeating one model N times is valid when the work depends on generation.
 4. Assign output paths. Each candidate writes to its own location (a git worktree where possible, otherwise `/tmp/arena-<slug>/candidate-<n>/`). N candidates writing to the same path is shared mutable state and fails the the **separate-before-serializing-shared-state** principle skill test.
 
 ## Phase B: Fan out
 
-Launch all N children concurrently through the host's task facility. Give each a standalone brief with the task, the path to the shared grounding, its own output path, acceptance criteria, verification, forbidden scope, and instructions to produce both the artifact and a short rationale.
+On Pi, `pstack_panel` launches all N children concurrently. The router binds each `arena runners` entry as its per-run `model`. Give each child a standalone brief. Include the task, grounding path, output path, acceptance criteria, verification, forbidden scope, and rationale requirement.
 
 The rationale is mandatory. Without it, the parent cannot tell whether a candidate's structure is principled or accidental, which makes Phase E grafting unreliable. Each rationale names the alternatives the candidate considered and what it rejected.
 
@@ -40,7 +42,7 @@ If a candidate fails to produce output, proceed with N-1 and note the dropout in
 
 ## Phase C: Cross-judge
 
-After all Phase B candidates complete, choose one choice from the `arena cross-judge pool` in the portable pstack configuration when present. Otherwise use the host's `reviewer` role or `inherit-parent`. Prefer a different model family from the parent's when the host exposes model identity. Launch one read-only judge child on that choice. It sees the rubric and the candidates by path label, scores each criterion, and recommends a base with rationale. It runs in parallel with the parent's reading in Phase D, not with the candidates themselves. Spawning while candidates are still writing means the judge sees partial or empty outputs and reports them as dropouts.
+After all Phase B candidates complete, resolve the `arena cross-judge pool` model role. Select one configured model whose family differs from the parent. On Pi, call `pstack_launch` with execution role `reviewer` and the selected `modelNumber`. If the pool is absent, stop the Pi dispatch. The judge sees the rubric and candidates by path label. It scores each criterion and recommends a base with rationale. Start it with the parent's Phase D review, not with active writers.
 
 ## Phase D: Pick a base
 

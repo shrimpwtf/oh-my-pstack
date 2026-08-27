@@ -1,6 +1,6 @@
 {
   "name": "pstack-pi",
-  "version": "0.14.3-pi.1",
+  "version": "0.14.3-pi.2",
   "description": "Portable pstack engineering workflows for Codex, Pi-based runtimes, OpenCode, Claude Code, and other Agent Skills hosts.",
   "author": {
     "name": "pstack contributors"

@@ -1,6 +1,6 @@
 {
   "name": "pstack-pi",
-  "version": "0.14.3-pi.1",
+  "version": "0.14.3-pi.2",
   "description": "Portable pstack engineering workflows and Agent Skills for Pi, OMP, OpenCode, Claude Code, and Codex.",
   "type": "module",
   "keywords": [
@@ -26,11 +26,20 @@
   ],
   "license": "MIT",
   "pi": {
+    "extensions": [
+      "./extensions/pstack-router/index.ts"
+    ],
+    "subagents": {
+      "agents": [
+        "./agents"
+      ]
+    },
     "skills": [
       "./skills"
     ]
   },
   "files": [
+    "extensions",
     "skills",
     "agents",
     "scripts",
@@ -42,9 +51,41 @@
     "upstream.lock.json"
   ],
   "scripts": {
-    "verify": "node scripts/verify.mjs",
+    "verify": "node scripts/verify.mjs && node --experimental-strip-types --test scripts/*.test.mjs && npm run typecheck",
+    "test": "node --experimental-strip-types --test scripts/*.test.mjs",
     "test:sync": "node --test scripts/sync-upstream.test.mjs",
+    "typecheck": "tsc --project extensions/pstack-router/tsconfig.json",
     "sync:check": "node scripts/sync-upstream.mjs --check",
     "sync:apply": "node scripts/sync-upstream.mjs --apply"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": ">=0.84.3",
+    "@earendil-works/pi-coding-agent": ">=0.84.3",
+    "pi-subagents": ">=0.57.0",
+    "typebox": ">=1.3.7"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-ai": {
+      "optional": true
+    },
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    },
+    "pi-subagents": {
+      "optional": true
+    },
+    "typebox": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@earendil-works/pi-ai": "^0.84.3",
+    "@earendil-works/pi-coding-agent": "^0.84.3",
+    "@types/node": "^24.10.0",
+    "typebox": "^1.3.7",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22.6.0"
   }
 }

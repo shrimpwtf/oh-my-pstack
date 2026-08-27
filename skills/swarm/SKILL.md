@@ -6,7 +6,9 @@ disable-model-invocation: true
 
 # Swarm
 
-Follow the [portable runtime contract](../pstack-pi/references/runtime.md) for worker roles, concurrent execution, models, writable isolation, and unavailable-capability fallbacks.
+Follow the [portable runtime contract](../pstack-pi/references/runtime.md) for execution roles, model roles, concurrent execution, writable isolation, and unavailable-capability fallbacks.
+
+`swarm workers` is a panel model role. It configures one or more per-run models. It does not select the execution agent.
 
 Fan out N parallel workers through the current host. They may cover separate slices, race the same brief, or mix both. The parent waits, aggregates, and returns one report.
 
@@ -24,12 +26,12 @@ Track one checklist entry per phase before launching anything. Use the host's pl
 1. State the done predicate and the artifact or report the swarm must return.
 2. Choose the shape. Partition into slices, race N workers on identical briefs, or mix both. For a race or mixed shape, declare `first pass`, `rank all`, or `best-of` before spawning.
 3. Set N from the user or derive it from the shape. N is total workers, not the host's concurrency limit.
-4. Pick the worker choice from `swarm workers` in the portable pstack configuration when present. Otherwise use the canonical `implementer` role. For a model race, name each arm's role or model choice up front.
+4. Resolve the `swarm workers` model role. On Pi, call `pstack_launch` once per worker. Select the execution role from each task. For normal fan-out, use model choice 1. For a cross-model race, assign one configured `modelNumber` to each arm. Stop if the configuration has too few distinct models.
 5. Give each worker its own writable output when it writes. Use a worktree, branch, or `/tmp/swarm-<slug>/worker-<n>/`.
 
 ## Phase B: Fan out
 
-Launch all N workers concurrently through the host's task facility using the configured choice. Use the environment the current host actually provides; do not assume remote execution, uploaded repositories, or access to the user's machine. If workers need a non-default branch or checkout, name it in each standalone brief and verify that the host can access it before launch.
+Launch all N workers concurrently through the host's task facility. Pass the assigned `modelNumber` to each launch. Use the environment that the current host provides. If workers need a non-default branch or checkout, name it in each standalone brief and verify host access before launch.
 
 Every brief stands alone. Include the goal, scope, exact slice or race arm, how to verify, and what to report. Reports use `PASS`, `ISSUES`, or `BLOCKED` with evidence.
 

@@ -10,7 +10,7 @@ Follow the [portable runtime contract](../pstack-pi/references/runtime.md) for t
 
 A guided flow for turning the user's working conventions into a skill agents will follow. The output is one `-mode` skill tailored to them (e.g. `jay-mode`, `priya-mode`).
 
-This skill orchestrates three parts: an inline mining pass (see step 1), the host's skill-authoring facility when available (or direct `SKILL.md` authoring when it is not), and the sibling **unslop** skill for prose discipline. It sequences them; it doesn't replace them.
+This skill orchestrates three parts: an inline mining pass (see step 1), the bundled [create-skill](../create-skill/SKILL.md) workflow, and the sibling **unslop** skill for prose discipline. It sequences them; it doesn't replace them.
 
 ## Flow
 
@@ -66,12 +66,12 @@ The **poteto-mode** skill shows the shape. Read it for granularity. Don't copy i
 
 ### 4. Draft the skill
 
-Use the host's skill-authoring facility when available. Otherwise author the `SKILL.md` directly using the same draft, review, and iteration discipline. Placement:
+Use the bundled [create-skill](../create-skill/SKILL.md) workflow. Use a compatible host facility only when it follows the same portable contract. Placement:
 
 - Path: preserve an existing mode skill's category. For a new mode in this package, use `skills/<handle>/<handle>-mode/SKILL.md` when the repo has an established personal category for that handle; otherwise default to `skills/<handle>-mode/SKILL.md`. For another host, use its project-local skill root; do not assume a vendor-specific global path.
 - Handle: the user's first name or chosen identifier.
 - Frontmatter `description`: trigger on their name + `/<handle>-mode` + "work in their style", not on generic keywords like "write code" or "review PR".
-- Frontmatter formatting: follow `create-skill`'s YAML rules. Keep `description` as one YAML scalar; quote it or use `description: >-` with indented continuation lines when punctuation or wrapping requires it.
+- Frontmatter formatting: follow the bundled [create-skill](../create-skill/SKILL.md) YAML rules. Keep `description` as one YAML scalar; quote it or use `description: >-` with indented continuation lines when punctuation or wrapping requires it.
 - Frontmatter `disable-model-invocation: true` by default. Mode skills are heavy and opinionated; they should only apply when the user explicitly invokes them (by name or slash command), not auto-trigger on description matching. Opt out only if the user explicitly wants their mode to apply on every turn.
 
 ### 5. Iterate on prose
@@ -101,7 +101,7 @@ Run a description-optimization loop only if the skill's trigger accuracy turns o
 
 ## When not to use
 
-- User wants a task-specific skill (not working conventions): use the host's skill-authoring facility or author it directly; no mining required.
+- User wants a task-specific skill, not working conventions: use the bundled [create-skill](../create-skill/SKILL.md) workflow. Do not mine transcripts.
 - User wants to capture one narrow workflow (e.g. "how I write commit messages"): that's a regular skill, not a mode skill.
 
 ## Reference files

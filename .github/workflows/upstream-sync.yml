@@ -26,6 +26,9 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install package dependencies
+        run: npm ci --ignore-scripts
+
       - name: Apply safe upstream update
         run: node scripts/sync-upstream.mjs --apply
 

@@ -6,7 +6,9 @@ disable-model-invocation: true
 
 # Reflect
 
-Follow the [portable runtime contract](../pstack-pi/references/runtime.md) for transcript discovery, child roles, model choices, tool access, questions, and skill authoring.
+Follow the [portable runtime contract](../pstack-pi/references/runtime.md) for transcript discovery, execution roles, model roles, tool access, questions, and skill authoring.
+
+`reflect judgment`, `reflect tooling`, `reflect divergent`, and `reflect synthesizer` are pstack model roles. On Pi, route each child through `pstack_launch`. The router binds each configured per-run `model`.
 
 Mine the current conversation for durable learnings, then route them into skill edits.
 
@@ -36,19 +38,19 @@ For each candidate, read the first JSONL line and check that `message.content[0]
 
 ### 2. Spawn three reviewers in parallel
 
-Launch three reviewer children concurrently through the host's task facility. Use the configured choices when present; otherwise use the canonical roles below. Grant each child read access to the transcript and any host tools needed for context lookups, but forbid file writes in the brief. If the host cannot combine read-only repository posture with external-tool access, preserve tool access and enforce no writes in the brief; the parent applies edits.
+Launch three reviewer children before awaiting results. Resolve one model role per lens. On Pi, call `pstack_launch` three times with the listed execution roles. Verify that each execution profile already exposes transcript access and required tools. The router does not grant tools. Run an unsupported lens in the parent, or report the capability gap. Forbid file writes in the brief.
 
-| Lens | Configured choice / fallback role | Prompt template |
-|---|---|---|
-| Judgment | `reflect judgment`, else `reviewer` | `references/judgment-reviewer.md` |
-| Tooling | `reflect tooling`, else `researcher` | `references/tooling-reviewer.md` |
-| Divergent | `reflect divergent`, else `designer` | `references/divergent-reviewer.md` |
+| Lens | Model role | Execution role | Prompt template |
+|---|---|---|---|
+| Judgment | `reflect judgment` | `reviewer` | `references/judgment-reviewer.md` |
+| Tooling | `reflect tooling` | `researcher` | `references/tooling-reviewer.md` |
+| Divergent | `reflect divergent` | `designer` | `references/divergent-reviewer.md` |
 
 Pass each template verbatim, substituting the transcript path or digest where marked. Reviewers return findings in their child reports.
 
 ### 3. Synthesize
 
-Launch one `synthesizer` child, using the configured `reflect synthesizer` choice when present. Give it the host tools needed to spot-verify citations while forbidding repository writes in its standalone brief. Use `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked. The synthesizer returns a structured Accepted / Rejected / Backlog list.
+Launch one child with execution role `synthesizer`. On Pi, call `pstack_launch` with model role `reflect synthesizer`. Verify that the execution profile already exposes the citation tools. Run synthesis in the parent if it does not. Forbid repository writes. Use `references/synthesizer.md` verbatim with each reviewer output inserted where marked. The synthesizer returns a structured Accepted / Rejected / Backlog list.
 
 ### 4. Structural enforcement check
 

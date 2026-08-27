@@ -6,7 +6,9 @@ disable-model-invocation: true
 
 # Architect
 
-Follow the [portable runtime contract](../pstack-pi/references/runtime.md) for skill invocation, role selection, panels, and model configuration.
+Follow the [portable runtime contract](../pstack-pi/references/runtime.md) for skill invocation, execution roles, model roles, and panels.
+
+`architect runners` is a pstack model role. It supplies models to the arena children. It does not assign their execution roles.
 
 Design before implementing. Sketch types, function signatures, class shapes, and module boundaries with `not implemented` bodies and pseudocode. Synthesize across multiple model perspectives, then fill in code against the chosen sketch. If implementation proves the sketch wrong, throw it out and redesign.
 
@@ -32,7 +34,7 @@ Skip Phase A only when the work is genuinely greenfield with no surrounding syst
 
 Run the **arena** skill with the design-sketch task and the Phase A grounding artifacts. Pass `references/runner-prompt.md` as each runner's prompt. Each candidate produces a design package shaped per `references/rationale-template.md`: the caller's usage written first, then the type sketch, function signatures, module map, and prose rationale derived from it.
 
-Use the configured `architect runners` panel. If it is absent, use a diverse host-supported panel drawn from `designer`, `planner`, `reviewer`, and `inherit-parent`; the live host inventory wins.
+Resolve the `architect runners` panel and pass it to the arena as the runner model role. On Pi, the arena calls `pstack_panel`. The router binds one entry through each child's per-run `model` field. Select one shared execution role from the design artifact contract. If the panel is absent, stop the Pi dispatch.
 
 Design it twice. Require at least two structurally distinct candidates before synthesis, even when the first looks sufficient. This is the **exhaust-the-design-space** principle skill made concrete. Whole-shape alternatives, not point fixes inside one shape.
 

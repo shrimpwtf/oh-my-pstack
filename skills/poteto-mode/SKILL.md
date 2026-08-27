@@ -13,7 +13,7 @@ disable-model-invocation: true
 Remaining triggers:
 
 - Nontrivial change, architecture decision, or "are we sure?" → the **how** skill.
-- About to ask the user a "which approach", "how should I", or "what should this do" question → classify it before you ask through the active host's user-interaction surface. If the answer is a fact you could observe by running something (behavior, timing, layout, output, perf, even whether an eval separates), it is not the human's to answer. Sketch it via the Prototype playbook (`skill://poteto-mode/playbooks/prototype.md`) and let the result decide. If the task is a read-only Investigation whose deliverable is a cited answer, stay in it and answer from the evidence rather than building a sketch. Reserve the question for a genuine product or preference call no experiment can settle. The ask is the slow path. A throwaway probe usually answers faster, and it hands the human a result to react to instead of a decision to make.
+- About to ask the user a "which approach", "how should I", or "what should this do" question → classify it before you ask through the active host's user-interaction surface. If the answer is a fact you could observe by running something (behavior, timing, layout, output, perf, even whether an eval separates), it is not the human's to answer. Sketch it via the Prototype playbook (`playbooks/prototype.md`) and let the result decide. If the task is a read-only Investigation whose deliverable is a cited answer, stay in it and answer from the evidence rather than building a sketch. Reserve the question for a genuine product or preference call no experiment can settle. The ask is the slow path. A throwaway probe usually answers faster, and it hands the human a result to react to instead of a decision to make.
 - Any code → name the data shape first, and choose its organizing structure per **principle-model-the-domain**.
 - Code crossing a function boundary → the **architect** skill, parallel design exploration before implementing.
 - Parallel fan-out → the **swarm** skill for coverage matrices, races, gauntlets, and exploration partitions. Use **arena** for design or code bakeoffs with base selection and grafting.
@@ -23,10 +23,10 @@ Remaining triggers:
 - Docs, RFCs, readmes, PR descriptions, or commit messages → the **technical-writing** skill (`/technical-writing`).
 - Before commit → the **unslop** skill.
 - Before review → the **no-comments** skill (`/no-comments`).
-- Shipping UI / IDE / CLI → the installed control capability for that surface. Use `cua-driver` and `peekaboo` for native UI work, browser-page tooling for web surfaces, and direct terminal verification for CLIs and TUIs. For bug fixes, reproduce first on the same surface yourself; hand to the user only under the narrow Bug fix step 1 exception.
-- Any PR-status request → the **Babysit** playbook (`skill://poteto-mode/playbooks/babysit.md`). That includes "babysit this", "get it green", "address the bugbot comments", and the commonest phrasing, "check on PR X" / "anything outstanding on X". Never triggered by merely opening a PR. Declare its mode before polling; the playbook's step 1 owns the request-to-mode mapping.
-- Asked to land or ship a green stack → the **Shipping** playbook (`skill://poteto-mode/playbooks/shipping.md`). Green is not safe. Nothing gets armed before an independent per-PR verdict, and only the contiguous verified run from the root lands.
-- Bugbot or the agentic security review commented → skeptical posture. They catch real bugs and also file non-issues and nitpicks, so assess each on its merits and dismiss noise with a concrete reason instead of churning code. Triage fix / dismiss / ask per `skill://poteto-mode/references/bugbot-triage.md`.
+- Shipping UI / IDE / CLI → the installed control capability for that surface. Use the installed simulator or GUI driver for native UI work, browser-page tooling for web surfaces, and direct terminal verification for CLIs and TUIs. For bug fixes, reproduce first on the same surface yourself; hand to the user only under the narrow Bug fix step 1 exception.
+- Any PR-status request → the **Babysit** playbook (`playbooks/babysit.md`). That includes "babysit this", "get it green", "address the bugbot comments", and the commonest phrasing, "check on PR X" / "anything outstanding on X". Never triggered by merely opening a PR. Declare its mode before polling; the playbook's step 1 owns the request-to-mode mapping.
+- Asked to land or ship a green stack → the **Shipping** playbook (`playbooks/shipping.md`). Green is not safe. Nothing gets armed before an independent per-PR verdict, and only the contiguous verified run from the root lands.
+- Bugbot or the agentic security review commented → skeptical posture. They catch real bugs and also file non-issues and nitpicks, so assess each on its merits and dismiss noise with a concrete reason instead of churning code. Triage fix / dismiss / ask per `references/bugbot-triage.md`.
 - Broken skill mid-task → fix it in its own PR. Don't block. Don't silently work around it.
 - Long, autonomous, or multi-phase work, or any task the user steps away from to review later ("going to bed", "trust it when i'm back", "run until X") → a decision trail via the **show-me-your-work** skill. Commit it when stakes need an auditable record; keep it local otherwise.
 
@@ -82,9 +82,11 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 ## Delegation
 
-`poteto-mode` is the sole router. It selects the playbook, step order, canonical role, and lifecycle protocol. The `pstack-pi` adapter translates host mechanics. Never copy a backend's command syntax into a routed skill.
+`poteto-mode` is the sole router. It selects the playbook, pstack model role, execution role, step order, and lifecycle protocol. The `pstack-pi` adapter translates host mechanics. Never copy a backend's command syntax into a routed skill.
 
-Use these canonical roles:
+Pstack model roles and execution roles are independent. A model role is an original configuration line. An execution role defines child behavior.
+
+Use these execution roles:
 
 | Role | Responsibility |
 |---|---|
@@ -101,7 +103,11 @@ Use these canonical roles:
 
 Use only these canonical lifecycle protocols: **Bounded session**, **Panel**, **Long-lived owner**, and **One-shot watcher**. Their mechanics live in the active adapter. Start every Panel participant before waiting for any result. Keep implementers, reviewers, judges, and synthesizers separate. A child never starts another child; it returns proposed briefs to the root.
 
-Pass concise file pointers and explicit worktree or output paths. Review every artifact and run parent verification. Use a fresh session when the unit or role changes. Agreement across independent sessions is useful evidence, not proof. Model selection belongs to the active runtime's role configuration, not the routed skill.
+Pass concise file pointers and explicit worktree or output paths. Review every artifact and run parent verification. Use a fresh session when the unit or role changes. Agreement across independent sessions is useful evidence, not proof.
+
+Resolve the exact workflow model role before every child launch. On Pi, call `pstack_launch` for a scalar role. Call `pstack_panel` for a panel role. The router binds each configured choice through the per-run `model` field. Never translate a pstack model role into a host agent default.
+
+Use `judgment and prose` for delegated prose or judgment without a more specific workflow model role. Use `hardest tasks` for the hardest ambiguous or cross-cutting delegated unit. Route either scalar role through `pstack_launch` on Pi. The active playbook's specific model role wins over both general roles.
 
 ## Writing the reply
 
@@ -126,26 +132,26 @@ The matched playbook's steps are the first actions in the explicit plan, copied 
 
 A large or cross-cutting effort (a migration across many call sites, an ambitious multi-part change), or work the user steps away from to trust later, routes to the **figure-it-out** skill even when a narrower playbook like Feature fits. Use **figure-it-out** whenever no bundled playbook fits. It designs a bespoke, rigorous playbook for the task. A standing project-scale program (multi-day, many stacked PRs, a fleet of delegated sessions under one coordinator) routes to **Orchestrate** instead; figure-it-out designs one bespoke run, orchestrate runs the program.
 
-- **Investigation.** Read-only question: how does X work, why was Y built this way, are we sure about Z, should we do X or Y. `skill://poteto-mode/playbooks/investigation.md`.
-- **Bug fix.** A reported defect to reproduce, root-cause, and fix with runtime evidence. `skill://poteto-mode/playbooks/bug-fix.md`.
-- **Perf issue.** A measured slowness to trace and improve against a baseline. `skill://poteto-mode/playbooks/perf-issue.md`.
-- **Hillclimb.** Sustained, scientific improvement of one metric against a target: loop hypotheses with before/after measurement, a decision log, and one commit per accepted win. Distinct from Perf issue, which is a one-off fix. `skill://poteto-mode/playbooks/hillclimb.md`.
-- **Runtime forensics.** Diagnose a runtime symptom (leak, idle-CPU spin, glitch) from live instrumentation. The deliverable is a diagnosis, not a fix. `skill://poteto-mode/playbooks/runtime-forensics.md`.
-- **Trace forensics.** Diagnose a captured profiling artifact (cpuprofile, trace, spindump, heap snapshot) handed to you after the fact. The deliverable is a diagnosis, not a fix. `skill://poteto-mode/playbooks/trace-forensics.md`.
-- **Feature.** New or changed behavior, built from a named data shape. `skill://poteto-mode/playbooks/feature.md`.
-- **Refactoring.** A behavior-preserving change to structure or shape (rename, extract, inline, dedupe, move). `skill://poteto-mode/playbooks/refactoring.md`.
-- **Prototype.** A throwaway sketch to make a design or behavioral decision cheaply, or to settle an empirical fork by observing it instead of asking the human ("prototype", "mock it up", "try this layout", "sketch it to decide"). `skill://poteto-mode/playbooks/prototype.md`.
-- **Visual parity.** Pixel-exact UI equivalence: matching two implementations or migrating a styling system. `skill://poteto-mode/playbooks/visual-parity.md`.
-- **Authoring or modifying a skill.** Writing or editing a SKILL.md. `skill://poteto-mode/playbooks/authoring-a-skill.md`.
-- **Eval.** Testing how a skill, structure, or prompt change affects agent behavior before promoting it. `skill://poteto-mode/playbooks/eval.md`.
-- **Babysit.** Driving a PR or a stack to merge-ready: conflicts, review threads, CI. `skill://poteto-mode/playbooks/babysit.md`.
-- **Shipping.** The half after Babysit. Independently verifying a green stack, then landing the contiguous verified run with Graphite merge-when-ready. `skill://poteto-mode/playbooks/shipping.md`.
-- **Autonomous run.** A long task to drive to completion without stopping ("run until done", "continue until X"). `skill://poteto-mode/playbooks/autonomous-run.md`.
-- **Orchestrate.** A standing project handed to one coordinator chat: multi-day, many stacked PRs, dozens to hundreds of delegated sessions, minimal human turns ("run this whole project", "own this migration until it lands"). Distinct from Autonomous run, which drives one task to a predicate; work one agent could finish inside the session's budget routes there, not here, however program-shaped the phrasing sounds. `skill://poteto-mode/playbooks/orchestrate.md`.
-- **Autopilot-full.** A queue of independent PRs run to merged with full autonomy: one owner per PR carries build through merge-ready, and the root swarm-verifies and merges each accepted head ("autopilot this queue", "full autopilot", one-owner-per-PR programs). `skill://poteto-mode/playbooks/autopilot-full.md`.
-- **Autopilot-stack.** A queue of changes built and verified with full autonomy, delivered as one linear reviewed Graphite stack the operator lands herself ("autopilot-stack", "stack them, don't ship", "build the stack, I'll land it"). `skill://poteto-mode/playbooks/autopilot-stack.md`.
-- **Session pickup.** Resuming or taking over prior in-flight work from a known session ID, durable transcript or export, decision trail, or pushed branch. `skill://poteto-mode/playbooks/session-pickup.md`.
-- **Pause safely.** Suspending in-flight work cleanly so it can be resumed, on an explicit pause, going offline, a host restart, or imminent context compaction. The complement to Session pickup. Full steps: `skill://poteto-mode/playbooks/pause-safely.md`.
-- **Multi-phase or multi-PR plan.** Work that spans phases or stacked PRs. `skill://poteto-mode/playbooks/multi-phase-plan.md`.
-- **Worktree and simulator cleanup.** Reclaiming local disk by pruning merged or abandoned git worktrees and stale iOS simulators ("what's using my disk", "clean up worktrees", "prune safe-to-prune worktrees", "free up space", "delete old simulators"). `skill://poteto-mode/playbooks/worktree-cleanup.md`.
-- **Opening a PR.** Invoked at the end of every other playbook. `skill://poteto-mode/playbooks/opening-a-pr.md`.
+- **Investigation.** Read-only question: how does X work, why was Y built this way, are we sure about Z, should we do X or Y. `playbooks/investigation.md`.
+- **Bug fix.** A reported defect to reproduce, root-cause, and fix with runtime evidence. `playbooks/bug-fix.md`.
+- **Perf issue.** A measured slowness to trace and improve against a baseline. `playbooks/perf-issue.md`.
+- **Hillclimb.** Sustained, scientific improvement of one metric against a target: loop hypotheses with before/after measurement, a decision log, and one commit per accepted win. Distinct from Perf issue, which is a one-off fix. `playbooks/hillclimb.md`.
+- **Runtime forensics.** Diagnose a runtime symptom (leak, idle-CPU spin, glitch) from live instrumentation. The deliverable is a diagnosis, not a fix. `playbooks/runtime-forensics.md`.
+- **Trace forensics.** Diagnose a captured profiling artifact (cpuprofile, trace, spindump, heap snapshot) handed to you after the fact. The deliverable is a diagnosis, not a fix. `playbooks/trace-forensics.md`.
+- **Feature.** New or changed behavior, built from a named data shape. `playbooks/feature.md`.
+- **Refactoring.** A behavior-preserving change to structure or shape (rename, extract, inline, dedupe, move). `playbooks/refactoring.md`.
+- **Prototype.** A throwaway sketch to make a design or behavioral decision cheaply, or to settle an empirical fork by observing it instead of asking the human ("prototype", "mock it up", "try this layout", "sketch it to decide"). `playbooks/prototype.md`.
+- **Visual parity.** Pixel-exact UI equivalence: matching two implementations or migrating a styling system. `playbooks/visual-parity.md`.
+- **Authoring or modifying a skill.** Writing or editing a SKILL.md. `playbooks/authoring-a-skill.md`.
+- **Eval.** Testing how a skill, structure, or prompt change affects agent behavior before promoting it. `playbooks/eval.md`.
+- **Babysit.** Driving a PR or a stack to merge-ready: conflicts, review threads, CI. `playbooks/babysit.md`.
+- **Shipping.** The half after Babysit. Independently verifying a green stack, then landing the contiguous verified run with Graphite merge-when-ready. `playbooks/shipping.md`.
+- **Autonomous run.** A long task to drive to completion without stopping ("run until done", "continue until X"). `playbooks/autonomous-run.md`.
+- **Orchestrate.** A standing project handed to one coordinator chat: multi-day, many stacked PRs, dozens to hundreds of delegated sessions, minimal human turns ("run this whole project", "own this migration until it lands"). Distinct from Autonomous run, which drives one task to a predicate; work one agent could finish inside the session's budget routes there, not here, however program-shaped the phrasing sounds. `playbooks/orchestrate.md`.
+- **Autopilot-full.** A queue of independent PRs run to merged with full autonomy: one owner per PR carries build through merge-ready, and the root swarm-verifies and merges each accepted head ("autopilot this queue", "full autopilot", one-owner-per-PR programs). `playbooks/autopilot-full.md`.
+- **Autopilot-stack.** A queue of changes built and verified with full autonomy, delivered as one linear reviewed Graphite stack the operator lands herself ("autopilot-stack", "stack them, don't ship", "build the stack, I'll land it"). `playbooks/autopilot-stack.md`.
+- **Session pickup.** Resuming or taking over prior in-flight work from a known session ID, durable transcript or export, decision trail, or pushed branch. `playbooks/session-pickup.md`.
+- **Pause safely.** Suspending in-flight work cleanly so it can be resumed, on an explicit pause, going offline, a host restart, or imminent context compaction. The complement to Session pickup. Full steps: `playbooks/pause-safely.md`.
+- **Multi-phase or multi-PR plan.** Work that spans phases or stacked PRs. `playbooks/multi-phase-plan.md`.
+- **Worktree and simulator cleanup.** Reclaiming local disk by pruning merged or abandoned git worktrees and stale iOS simulators ("what's using my disk", "clean up worktrees", "prune safe-to-prune worktrees", "free up space", "delete old simulators"). `playbooks/worktree-cleanup.md`.
+- **Opening a PR.** Invoked at the end of every other playbook. `playbooks/opening-a-pr.md`.

@@ -2,8 +2,9 @@
   "repository": "https://github.com/cursor/plugins.git",
   "ref": "main",
   "path": "pstack",
-  "commit": "bdf7aa355337897f167153e05069aca505dae17c",
+  "commit": "46756f89270d7e7dcb8c28c90fd0f957ade4ce2c",
   "protectedPrefixes": [
+    "extensions/pstack-router/",
     "skills/poteto-mode/",
     "skills/pstack-pi/",
     "skills/orchestrate-omp/"
@@ -12,6 +13,7 @@
     "skills/architect/SKILL.md",
     "skills/arena/SKILL.md",
     "skills/automate-me/SKILL.md",
+    "skills/create-skill/SKILL.md",
     "skills/create-verification-skill/SKILL.md",
     "skills/figure-it-out/SKILL.md",
     "skills/how/SKILL.md",

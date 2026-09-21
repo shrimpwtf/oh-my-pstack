@@ -1,6 +1,6 @@
 ---
 name: setup-pstack
-description: Configure which host-supported roles or models pstack uses per workflow role. Detects the live host inventory and writes portable project-local configuration. Use for /setup-pstack, "configure pstack models", or changing pstack's role choices.
+description: Configure which host-supported roles, models, and reasoning budgets pstack uses per workflow role. Detects the live host inventory and writes portable project-local configuration. Use for /setup-pstack, "configure pstack models", "pstack budget", or changing pstack's role choices.
 ---
 
 # Setup pstack
@@ -43,11 +43,13 @@ limitation instead of substituting a Pi-specific mechanism.
 
 ### 1. Detect available choices
 
-Detect both of these independently:
+Detect these capabilities independently:
 
 1. The model IDs the current host actually exposes.
 2. Whether the current host exposes a task or subagent facility that can select a
    model for each child.
+3. Whether that facility accepts a separate reasoning effort or exposes model variants
+   with documented effort levels. Record only the supported values and mappings.
 
 For Pi, `pi --list-models` is the model inventory and the `provider/model-id` form
 is the concrete value to record. With `pi-subagents` installed, the `subagent`
@@ -62,14 +64,41 @@ mapping that the facility documents. Do not ask the user to invent a raw slug.
 ### 2. Load current state
 
 Read the selected configuration path when it exists and treat its concrete values
-as current choices. If it contains only portable role aliases from a host without
+as current choices. Read its `# budget` line and any per-role reasoning entries too.
+Preserve explicit model families, panel lists, and supported aliases on reruns.
+If it contains only portable role aliases from a host without
 per-child delegation, treat those aliases as stale inactive state and start from
 the detected models instead of carrying them into Pi's agent overrides.
 
-### 3. Map and confirm
+### 3. Budget, map, and confirm
+
+Once per-child selection is available, ask for a reasoning budget. Name the current
+budget when the configuration records one. Offer these choices through the host's
+structured interaction tool when available:
+
+- `unlimited`. Keep the current reasoning levels, including max where supported.
+- `large`. Target xhigh reasoning.
+- `medium`. Target high reasoning.
+- `small`. Target medium reasoning.
+
+Apply the budget to the current role table, including each panel entry. Preserve
+model families, panel membership, and supported aliases. `unlimited` preserves the
+current efforts. The other budgets select the highest supported effort at or below
+the target on the ladder `max` > `xhigh` > `high` > `medium` > `low`.
+
+Use a separate reasoning argument only when the host's child facility exposes it.
+If the host encodes reasoning in model IDs, select only detected IDs whose family
+and effort mapping the host documents. Never construct a model ID by changing a
+suffix. Leave `inherit-parent` and other documented aliases unchanged.
+
+When no supported effort meets a target, mark the role as needing a choice. If
+the host exposes no reasoning control, report that limitation and preserve its
+model choices. Do not record an applied budget or reasoning override in that case.
+A budget is a reasoning preference, not a monetary limit.
 
 If both model inventory and per-child model selection are available, show every
-workflow role with its current concrete `provider/model-id` choice. Mark an
+workflow role with its current concrete `provider/model-id` choice and supported
+reasoning level. Distinguish applied efforts from host defaults. Mark an
 explicit model absent from the live inventory as needing a replacement. Ask the
 user to accept or change the choices, offering only detected model IDs and
 `inherit-parent` when supported. Use the host's structured interaction tool when
@@ -85,11 +114,13 @@ role can receive a different model in this session and do not present the
 portable defaults as an assignment or overwrite an existing role configuration
 with inactive aliases.
 
-For panel roles (`how critics`, `arena runners`, `arena cross-judge pool`, `architect runners`, and `interrogate reviewers`), one child runs per entry, so list length controls fan-out. Prefer diversity for judgment-sensitive panels. `swarm workers` is the default choice for every worker unless a race assigns a different choice per arm.
+For panel roles (`arena runners`, `architect runners`, and `interrogate reviewers`), one child runs per entry, so list length controls fan-out. `arena cross-judge pool` is a list of candidates for one judge. Arena selects one entry, preferring a different model family from the parent when available. Prefer diversity for judgment-sensitive panels. `swarm workers` is the default choice for every worker unless a race assigns a different choice per arm.
 
 ### 4. Validate
 
 Every explicit model written must be present in the detected host inventory.
+Every reasoning override must be supported by that model and the host's child
+facility. Validate each panel entry. Do not treat an unsupported budget as applied.
 Role aliases pass only when the host task facility documents those aliases.
 `inherit-parent` passes only when the host can pass the current model to a child. If
 a selected explicit model is unavailable, stop and ask for a replacement. Never
@@ -98,7 +129,13 @@ write a configuration that requires another host.
 ### 5. Write the configuration
 
 When the host supports per-child selection, create the parent directory when
-needed and overwrite the selected file so re-runs remain idempotent. Use concrete
+needed and overwrite the selected file so re-runs remain idempotent. Preserve the
+confirmed role choices and record the applied budget as `# budget: <label> (<target>)`.
+For `unlimited`, record `# budget: unlimited (keep current efforts)`. Omit the budget
+line if the host has no reasoning control. When the host accepts separate reasoning
+arguments, add `<workflow role> reasoning: <effort>` entries. Panel reasoning lists
+must match the model list in length and order, using `host-default` for entries
+without an explicit effort. Keep those entries out of model ID values. Use concrete
 detected model IDs in this shape. Replace every placeholder with a model the
 current host reported, and use `inherit-parent` only when the host supports it:
 
@@ -106,14 +143,13 @@ current host reported, and use `inherit-parent` only when the host supports it:
 # pstack role and model configuration
 # Values are concrete provider/model-id choices confirmed by the host.
 feature, refactoring: <implementer-model>
-bug-fix: <reviewer-model>
-perf-issue: <reviewer-model>
+bug-fix: <implementer-model>
+perf-issue: <implementer-model>
 hillclimb: <implementer-model>
 judgment and prose: <reviewer-model>
 hardest tasks: inherit-parent
 how explorer: <explorer-model>
 how explainer: <synthesizer-model>
-how critics: <reviewer-model>, <planner-model>, <designer-model>, inherit-parent
 why investigators: <researcher-model>
 why synthesizer: <synthesizer-model>
 reflect tooling: <researcher-model>
@@ -157,6 +193,10 @@ Write the selected IDs under `subagents.agentOverrides.<agent>.model`:
 }
 ```
 
+Write host-specific reasoning settings only when the detected host facility
+documents the field and confirms support for the selected model. A model inventory
+alone does not establish reasoning support.
+
 For OpenCode, do not write `.pi/settings.json`. Keep the concrete model choices in
 the user's existing `opencode.json` or `opencode.jsonc`, and use the live
 OpenCode agent names in the pstack role map. Preserve unrelated configuration.
@@ -164,7 +204,8 @@ OpenCode agent names in the pstack role map. Preserve unrelated configuration.
 ### 6. Confirm
 
 If a concrete configuration was written, tell the user the exact path and list
-the model IDs assigned to each role family. For Pi, name both `.pstack/config.md`
+the model IDs and applied reasoning efforts assigned to each role family. State
+any unsupported budget choices and any roles that retain host defaults. For Pi, name both `.pstack/config.md`
 and `.pi/settings.json`, and tell the user to run `/subagents-models` to inspect
 the live mapping. For OpenCode, name the `opencode.json` or `opencode.jsonc`
 path used. State that configuration does not create models, child agents,

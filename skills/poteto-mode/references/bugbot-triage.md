@@ -10,7 +10,7 @@ Classify each Bugbot thread before acting:
 - `dismiss`: The comment matches a documented low-risk noisy pattern, and the current code/context proves the concern does not need a code change. Reply with a short reason and resolve the thread.
 - `ask`: The comment is novel, high-severity, security/privacy/data-related, or ambiguous. Ask the user instead of guessing.
 
-When in doubt, ask. Skipping a noisy code-quality comment is cheap; skipping a real data or security bug is not.
+When in doubt, ask. Skipping a noisy code-quality comment is cheap. Skipping a real data or security bug is not.
 
 ## Learned pattern format
 
@@ -40,7 +40,7 @@ Use `candidate` for one or two examples. Use `recurring` after multiple real dis
 ### Upstack or stack-local usage Bugbot cannot see
 
 - Confidence: candidate
-- Skip when: Bugbot flags an export, component, helper, or file as unused, and `gt ls -s`, upper-stack diffs, or PR context shows it is used by a later PR in the stack.
+- Skip when: Bugbot flags an export, component, helper, or file as unused, and the active forge's PR list and diffs, upper-stack diffs, or PR context show it is used by a later PR in the stack.
 - Do not skip when: The current PR is not part of a stack, the symbol is public API, or the supposed upstack use cannot be verified.
 - Example signal: "Exported component is never used" with a human reply like "used upstack".
 
@@ -98,19 +98,19 @@ Append new candidate learnings here during or after babysitting when they look t
 ### Contract-test drift claims are cheaply verifiable — run the test first
 
 - Confidence: candidate
-- Skip when: Never skip the verification itself; it costs one command. When a PR
+- Skip when: Never skip the verification itself. It costs one command. When a PR
   ships a contract test that pins protocol or documentation prose (regexes over
   a SKILL.md, snapshot of doc wording), and Bugbot claims "the test no longer
   matches the doc" (or vice versa), run that test on the PR tip before
-  classifying. A red run confirms the claim empirically; a green run is a
+  classifying. A red run confirms the claim empirically. A green run is a
   concrete disproof for the dismissal reply.
 - Do not skip when: n/a — this is a verification shortcut, not a dismissal
   pattern. Note that repeat-pass lean-dismiss heuristics would misfire here:
   prose-pinning tests drift precisely BECAUSE earlier fix rounds edit the prose.
 - Example signal: "Contract test omits the pre-fix wait" on a PR whose earlier
-  fix commits reworded the pinned passage; the test run on the tip failed on
+  fix commits reworded the pinned passage. The test run on the tip failed on
   exactly the cited assertion.
-- Source: one prose-pinning PR with eight Bugbot passes; the claim was real on
+- Source: one prose-pinning PR with eight Bugbot passes. The claim was real on
   pass 7 despite every earlier pass being fixed-and-resolved.
 
 ### Stale security-review finding already fixed later in the same PR

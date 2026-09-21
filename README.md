@@ -1,5 +1,7 @@
 # oh-my-pstack
 
+<img src="assets/logo.png" alt="pstack logo" width="128">
+
 Portable, rigorous engineering workflows for [OMP](https://omp.sh/), Pi,
 [OpenCode](https://opencode.ai/), Claude Code, Codex, and other hosts that support
 the Agent Skills layout.
@@ -12,9 +14,10 @@ adapter.
 
 ## What is included
 
-- 44 upstream pstack skills and their supporting references.
+- 47 upstream pstack skills and their supporting references.
 - Benny's three fail-closed issue-triage/reproduction skills.
 - `poteto-mode` for routing work through the right playbook.
+- `make-bot-ui` for connecting a local UI to an available webhook automation.
 - `pstack-pi` for translating roles, delegation, models, transcripts, questions,
   and long-running work to the active host.
 - Native package metadata for OMP/Pi, Claude Code, and Codex, plus OpenCode setup
@@ -130,9 +133,11 @@ Run the setup skill once:
 $setup-pstack
 ```
 
-It detects the roles and models your host actually exposes, lets you choose the
-defaults for implementation and review work when the host supports per-child
-model selection. On a task-capable host, it writes concrete
+It detects the roles and models your host actually exposes, asks for a reasoning
+budget, and lets you choose the defaults for implementation and review work when
+the host supports per-child model selection. Budget choices are unlimited, large, medium, and small. They preserve current
+efforts or target xhigh, high, and medium reasoning, respectively. Existing role choices stay in place unless you change them. The adapter
+applies only reasoning levels or model variants that the host actually supports. On a task-capable host, it writes concrete
 `provider/model-id` assignments to `.pstack/config.md` (or to `$PSTACK_CONFIG`
 when set). Native Pi can list and switch the single active model, but it does not
 include subagents. Install `pi-subagents`, restart Pi, and run

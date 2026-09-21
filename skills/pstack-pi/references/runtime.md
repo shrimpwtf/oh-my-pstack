@@ -75,6 +75,31 @@ The optional configuration path is `$PSTACK_CONFIG`. If it is unset, use
 `.pstack/config.md` in the current project for project-local settings. Do not write
 to a vendor-specific home directory unless the host explicitly asks for it.
 
+### Reasoning budgets
+
+Setup may record a `# budget: <label> (<target>)` comment and optional
+`<workflow role> reasoning: <effort>` entries alongside model choices. The budget
+comment records the user's preference. The per-role entries specify what to pass
+to the host. `unlimited` keeps current efforts. `large`, `medium`, and `small`
+target xhigh, high, and medium, respectively. A budget is not a spending limit.
+
+Read the reasoning entry for the selected workflow role when delegating. For a
+panel, pair efforts with model entries in order and require equal list lengths.
+`host-default` means omit the reasoning override. For grouped roles such as
+`feature, refactoring`, apply the matching grouped reasoning entry to both roles.
+For a judge chosen from a pool, use the effort at that candidate's position.
+
+Pass an explicit effort only when the live child facility and selected model
+support it. If the host encodes effort in model IDs, use only detected variants
+with a documented mapping. Never construct an ID by changing a suffix. Keep
+supported aliases, including `inherit-parent`, unchanged. If an explicit effort
+is unsupported or a panel's lengths differ, report the invalid configuration
+before spawning. Do not silently claim the requested budget was applied.
+
+Hosts without reasoning controls retain their model choices. Setup must report
+that limitation and omit applied budget and reasoning entries. A model inventory
+alone does not establish support for reasoning controls.
+
 ## Questions and interaction
 
 Use the host's structured user-interaction tool when it exists. Otherwise ask one

@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import {
@@ -8,7 +7,6 @@ import {
   readFile,
   readdir,
   rm,
-  stat,
   writeFile,
 } from "node:fs/promises";
 import { readFileSync } from "node:fs";
@@ -26,10 +24,6 @@ function git(args, cwd) {
   return execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 }
 
-function hash(value) {
-  return createHash("sha256").update(value).digest("hex");
-}
-
 export function normalizeContent(source) {
   return source
     .replaceAll("~/.cursor/rules/pstack-models.mdc", "$PSTACK_CONFIG (or .pstack/config.md)")
@@ -40,6 +34,7 @@ export function normalizeContent(source) {
     .replaceAll('environment: "cloud"', "environment: host-managed")
     .replaceAll("environment: 'cloud'", "environment: host-managed")
     .replaceAll("claude-fable-5-thinking-max", "host-configured role/model")
+    .replaceAll("claude-fable-5-1-thinking-max", "host-configured role/model")
     .replaceAll("gpt-5.6-sol-max", "host-configured role/model")
     .replaceAll("grok-4.6-fast-xhigh", "host-configured role/model")
     .replaceAll("claude-opus-5-thinking-xhigh", "host-configured role/model")
@@ -101,41 +96,33 @@ async function sourceRepository(lock, sourceArg) {
   }
 }
 
-async function sourcePathFor(lock, destination, sourceRoot) {
-  for (const mapping of lock.sourceRoots) {
-    const prefix = `${mapping.destination}/`;
-    if (destination.startsWith(prefix)) {
-      const candidate = join(mapping.source, destination.slice(prefix.length));
-      try {
-        await stat(join(sourceRoot, candidate));
-        return candidate;
-      } catch {
-        // Another source root may own this destination.
-      }
-    }
-  }
-  return null;
-}
-
 async function protectedChanges(lock, sourceRoot, commit) {
-  const changes = [];
-  for (const destination of lock.protectedPaths) {
-    const sourcePath = await sourcePathFor(lock, destination, sourceRoot);
-    if (!sourcePath) continue;
-    const latestPath = join(sourceRoot, sourcePath);
-    try {
-      const latest = await readFile(latestPath);
-      const baseline = execFileSync(
-        "git",
-        ["show", `${lock.commit}:${sourcePath}`],
-        { cwd: sourceRoot },
-      );
-      if (hash(latest) !== hash(baseline)) changes.push(destination);
-    } catch {
-      changes.push(`${destination} (baseline unavailable at ${commit})`);
+  const dirtyPaths = git(
+    ["status", "--porcelain", "--untracked-files=all", "--",
+      ...lock.sourceRoots.map((mapping) => mapping.source)],
+    sourceRoot,
+  );
+  if (dirtyPaths) return ["source has uncommitted changes in managed paths"];
+  let changedPaths;
+  try {
+    changedPaths = git(
+      ["diff", "--name-only", "--no-renames", "-z", `${lock.commit}..HEAD`, "--",
+        ...lock.sourceRoots.map((mapping) => mapping.source)],
+      sourceRoot,
+    ).split("\0").filter(Boolean);
+  } catch {
+    return [`baseline ${lock.commit} unavailable for comparison with ${commit}`];
+  }
+  const changes = new Set();
+  for (const sourcePath of changedPaths) {
+    for (const mapping of lock.sourceRoots) {
+      const prefix = `${mapping.source}/`;
+      if (!sourcePath.startsWith(prefix)) continue;
+      const destination = `${mapping.destination}/${sourcePath.slice(prefix.length)}`;
+      if (isProtectedPath(destination)) changes.add(destination);
     }
   }
-  return changes;
+  return [...changes];
 }
 
 async function applyUpdate(lock, sourceRoot, commit, dryRun) {

@@ -2,7 +2,7 @@
   "repository": "https://github.com/cursor/plugins.git",
   "ref": "main",
   "path": "pstack",
-  "commit": "bdf7aa355337897f167153e05069aca505dae17c",
+  "commit": "6ed0f7a9504f577d7529064103cecce9be7dfc5e",
   "protectedPrefixes": [
     "skills/poteto-mode/",
     "skills/pstack-pi/",
@@ -39,7 +39,8 @@
     "skills/reproduce-and-fix-issues/references/feature-map.example.md",
     "skills/setup-benny/SKILL.md",
     "skills/triage-issue-reports/SKILL.md",
-    "skills/triage-issue-reports/references/routing.example.md"
+    "skills/triage-issue-reports/references/routing.example.md",
+    "skills/make-bot-ui/SKILL.md"
   ],
   "sourceRoots": [
     {

@@ -5,6 +5,9 @@ description: "Pi runtime adapter for poteto-mode. Maps canonical pstack roles an
 
 # pstack on Pi
 
+Read the [portable runtime contract](references/runtime.md) before delegation,
+including its model selection and reasoning-budget rules.
+
 `poteto-mode` is the sole router. It selects the playbook, canonical role, step order, and lifecycle protocol. This adapter translates those choices to Pi-compatible runtimes. It never selects a playbook, repeats the playbook index, or changes a playbook gate.
 
 While this skill is active, its role map is the specific pstack execution contract. Generic host instructions remain valid outside pstack work.

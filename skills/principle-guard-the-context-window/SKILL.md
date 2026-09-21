@@ -8,9 +8,9 @@ disable-model-invocation: true
 
 When delegation is involved, follow the [portable runtime contract](../pstack-pi/references/runtime.md) for child roles and unavailable-capability fallbacks.
 
-The context window is finite and non-renewable within a session. Every token that enters should earn its place.
+The context window is finite and non-renewable within a session. Every token should be worth its cost.
 
-**Why:** Context overflow degrades reasoning quality, creates compression artifacts, and halts progress. Unlike compute or time, context spent inside a session cannot be reclaimed.
+**Why:** Context overflow degrades reasoning quality, creates compression artifacts, and halts progress.
 
 **Pattern:**
 - **Isolate large payloads.** Route verbose outputs, screenshots, and large documents to child agents when the host supports them; otherwise process them in bounded local slices. The main context gets summaries, not raw data.

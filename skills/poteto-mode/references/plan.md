@@ -22,7 +22,7 @@ Resolve what is in scope vs explicitly out, technical or platform constraints, p
 
 ## 3. Explore through the active adapter
 
-Delegate codebase exploration (the **guard-the-context-window** principle skill) with the canonical `explorer` role and the active adapter's **Panel** protocol. Start every independent slice before waiting. The adapter owns concrete role and model routing.
+Delegate codebase exploration (the **guard-the-context-window** principle skill) with the canonical `explorer` role and the active adapter's **Panel** protocol. Start every independent slice before waiting. The adapter owns concrete role and model routing; consult its capability matrix for what batch spawn, `wait`, peer messaging, and follow-up actually support.
 
 Each explorer returns file pointers, conventions, dependencies, test infrastructure, and entry points. No inlined dumps.
 
@@ -70,7 +70,7 @@ Order phases so infrastructure and shared types land first (the **foundational-t
 
 For changes touching existing code, apply the **redesign-from-first-principles** principle skill: if we'd built this with the new requirement on day one, what would it look like? Redesign holistically; deliver incrementally.
 
-If a phase creates or edits a skill, the phase instructs the implementer to use the installed **writing-for-agents** guidance.
+If a phase creates or edits a skill, use the host's skill-authoring guidance when available. Otherwise, follow the target package's existing `SKILL.md` conventions. Validate frontmatter, referenced files, and cross-skill links.
 
 ## 5. Verification per phase
 

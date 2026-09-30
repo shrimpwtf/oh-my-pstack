@@ -130,17 +130,20 @@ Run the setup skill once:
 $setup-pstack
 ```
 
-It detects the roles and models your host actually exposes, lets you choose the
-defaults for implementation and review work when the host supports per-child
-model selection. On a task-capable host, it writes concrete
-`provider/model-id` assignments to `.pstack/config.md` (or to `$PSTACK_CONFIG`
-when set). Native Pi can list and switch the single active model, but it does not
-include subagents. Install `pi-subagents`, restart Pi, and run
-`/subagents-doctor` before setup if you want role assignments. Setup then writes
-the pstack role map and Pi's `subagents.agentOverrides` with concrete model IDs.
-Without the extension, setup reports the limitation instead of pretending that
-role assignments are active. Switch Pi's single active model with `/model` or
-`pi --model provider/model-id`.
+Setup checks the host's live role, model, and child-task capabilities. It does not
+identify a host by finding an executable on `PATH`.
+
+On OMP, `omp models --json` lists models and the task tool's live schema and agent
+inventory show available child agents. OMP task items select an agent, not a model.
+Setup can configure child models through `.omp/config.yml` under
+`task.agentModelOverrides`, keyed by the actual OMP agent names. It also writes
+portable workflow preferences to `.pstack/config.md`; that file alone does not
+activate OMP model routing. Roles mapped to the same OMP agent share one model.
+
+Native Pi can list and switch the single active model, but it does not include
+subagents. Install `pi-subagents`, restart Pi, and run `/subagents-doctor` before
+setup if you want role assignments. Without the extension, setup reports the
+limitation instead of presenting inactive role assignments.
 
 Then route your first real task through the main workflow:
 
@@ -192,6 +195,13 @@ bunx tsc --project skills/poteto-mode/scripts/watch-pr/tsconfig.json --noEmit --
 
 `npm run verify` checks skill inventory, frontmatter, local references, manifests,
 the upstream lock, and forbidden vendor-specific runtime bindings.
+
+The opt-in live Task interaction smoke requires OMP 18.4.3 and a configured model;
+it uses a disposable temporary Git fixture and makes a real model call:
+
+```bash
+PSTACK_OMP_SMOKE_MODEL=provider/model npm run test:omp-task-semantics
+```
 
 ## Host contract
 

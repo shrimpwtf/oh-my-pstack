@@ -43,7 +43,9 @@
   ],
   "scripts": {
     "verify": "node scripts/verify.mjs",
-    "test:sync": "node --test scripts/sync-upstream.test.mjs",
+    "test:sync": "node --test scripts/sync-upstream.test.mjs scripts/skill-references.test.mjs scripts/omp-session-provenance.test.mjs scripts/omp-semantics-regression.test.mjs",
+    "test:omp-isolation": "node scripts/omp-isolation-smoke.mjs",
+    "test:omp-task-semantics": "node scripts/omp-task-semantics-smoke.mjs",
     "sync:check": "node scripts/sync-upstream.mjs --check",
     "sync:apply": "node scripts/sync-upstream.mjs --apply"
   }

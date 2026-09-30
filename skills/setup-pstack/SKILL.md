@@ -11,12 +11,31 @@ Write the optional pstack configuration at `$PSTACK_CONFIG` when that variable i
 
 ## Steps
 
-Model discovery and model assignment are different capabilities. A model listed by
-`pi --list-models` is available to the current Pi process, but that does not mean a
-workflow can send work to it. Per-role assignment also requires a host task or
-subagent facility that accepts a model choice. Native Pi intentionally does not
-include subagents. Do not claim that a role was assigned when that facility is
-absent.
+Model discovery, host identity, and model assignment are separate capabilities.
+Do not identify the active host by checking whether `pi`, `opencode`, `codex`, or
+another executable is on `PATH`. Use an explicit runtime identity when the host
+provides one. Otherwise report the host as unknown and inspect only the live
+capabilities available in this session.
+
+A model listed by a host is available to the current runtime, but that does not
+mean a child can select it. Per-child assignment may use a model field on each
+task item or a documented setting that selects a model by child agent name. Do
+not require a task-item `model` field when the host documents another routing
+mechanism.
+
+For OMP, the task payload has no per-item `model` field. Its documented
+`task.agentModelOverrides` setting provides per-agent model selection. When the
+active task interface and live agent inventory match OMP's task contract, run
+`omp models --json` and `omp config list --json` before deciding that model
+inventory or child selection is unavailable. A listed `task.agentModelOverrides`
+setting is the supported selector even when its current value is `{}`. Confirm
+each chosen model against the model inventory. If either command fails, report
+the exact unavailable capability; do not infer that OMP lacks model routing just
+because the task item has no model field or the override map is empty.
+
+OMP model overrides are per host agent name, not per canonical pstack role. Roles
+that map to the same OMP agent share its model selection. Do not claim distinct
+role models for roles mapped to the same agent.
 
 ### Pi delegation prerequisite
 
@@ -43,17 +62,25 @@ limitation instead of substituting a Pi-specific mechanism.
 
 ### 1. Detect available choices
 
-Detect both of these independently:
+Detect these independently:
 
 1. The model IDs the current host actually exposes.
 2. Whether the current host exposes a task or subagent facility that can select a
    model for each child.
+3. The host's live agent inventory and the mapping from canonical pstack roles.
 
 For Pi, `pi --list-models` is the model inventory and the `provider/model-id` form
 is the concrete value to record. With `pi-subagents` installed, the `subagent`
 tool and `/subagents-doctor` establish the delegation inventory. The live host
 inventory is authoritative. Never copy a vendor slug from prose or guess that a
 model is available.
+
+For OMP, use `omp models --json` for the model inventory and the live task tool
+schema for task and agent capability. The bundled agent names are `scout`,
+`reviewer`, `security-reviewer`, `task`, and `sonic`; project, user, and extension
+agents may add names. Task items select an agent, not a model. OMP selects child
+models through `task.agentModelOverrides`, agent definitions, and `modelRoles`.
+Do not infer OMP support from an executable on `PATH`.
 
 If the host has a task facility but cannot enumerate models, use only a host role
 mapping that the facility documents. Do not ask the user to invent a raw slug.
@@ -68,12 +95,11 @@ the detected models instead of carrying them into Pi's agent overrides.
 
 ### 3. Map and confirm
 
-If both model inventory and per-child model selection are available, show every
-workflow role with its current concrete `provider/model-id` choice. Mark an
-explicit model absent from the live inventory as needing a replacement. Ask the
-user to accept or change the choices, offering only detected model IDs and
-`inherit-parent` when supported. Use the host's structured interaction tool when
-available; otherwise ask one focused question in normal conversation.
+If model inventory and per-child selection are both available, show the detected
+model IDs and live child agent names before asking for role choices. Map roles
+through the runtime adapter. For OMP, roles routed to one agent share one model
+override; collapse those roles to one choice and explain the shared assignment.
+Do not write assignments for roles whose host agent is missing.
 
 If the host exposes models but no task or subagent facility, stop model mapping
 with an explicit capability report. For native Pi, recommend
@@ -84,6 +110,7 @@ capability without proposing a vendor-specific substitute. Say that no pstack
 role can receive a different model in this session and do not present the
 portable defaults as an assignment or overwrite an existing role configuration
 with inactive aliases.
+
 
 For panel roles (`how critics`, `arena runners`, `arena cross-judge pool`, `architect runners`, and `interrogate reviewers`), one child runs per entry, so list length controls fan-out. Prefer diversity for judgment-sensitive panels. `swarm workers` is the default choice for every worker unless a race assigns a different choice per arm.
 
@@ -127,6 +154,27 @@ architect runners: <designer-model>, <planner-model>, <reviewer-model>, inherit-
 interrogate reviewers: <reviewer-model>, <planner-model>, <designer-model>, inherit-parent
 ```
 
+For OMP, also write the selected concrete IDs to the project's `.omp/config.yml`
+under `task.agentModelOverrides`, keyed by the live OMP agent names. Preserve all
+unrelated settings. Do not write a task-item `model` field. Roles that map to the
+same OMP agent must use the same model choice. `.pstack/config.md` records the
+portable workflow preferences; it does not activate OMP model routing by itself.
+
+```yaml
+task:
+  agentModelOverrides:
+    scout: <explorer-model>
+    reviewer: <reviewer-model>
+    security-reviewer: <reviewer-model>
+    task: <implementer-model>
+    sonic: <mechanical-model>
+```
+
+Only include agents present in the live inventory and models confirmed by the
+host. Configure `security-reviewer` with the selected review model when both
+review lanes should share it. OMP does not inherit the `reviewer` override for
+another agent name.
+
 For Pi with `pi-subagents`, also preserve unrelated keys and update the project's
 `.pi/settings.json` with the concrete model assignments for the discovered
 subagent names. Use this mapping unless the user chooses different agents:
@@ -164,15 +212,22 @@ OpenCode agent names in the pstack role map. Preserve unrelated configuration.
 ### 6. Confirm
 
 If a concrete configuration was written, tell the user the exact path and list
-the model IDs assigned to each role family. For Pi, name both `.pstack/config.md`
-and `.pi/settings.json`, and tell the user to run `/subagents-models` to inspect
-the live mapping. For OpenCode, name the `opencode.json` or `opencode.jsonc`
-path used. State that configuration does not create models, child agents,
-permissions, or delegation facilities.
+the model IDs assigned to each host agent. For OMP, name `.pstack/config.md` and
+`.omp/config.yml`, and state that the latter's `task.agentModelOverrides` entries
+route child models by agent name. For Pi, name both `.pstack/config.md` and
+`.pi/settings.json`, and tell the user to run `/subagents-models` to inspect the
+live mapping. For OpenCode, name the `opencode.json` or `opencode.jsonc` path
+used. State that configuration does not create models, child agents, permissions,
+or delegation facilities.
 
-If the host lacks per-child model selection, report that no role configuration was
-written or activated. Tell the user which model is active and how to switch the
-single Pi session model.
+For OMP, label values in `.pstack/config.md` and `.omp/config.yml` as configured
+models. Do not copy them into resolved or invoked fields. To report a completed
+child's runtime model, inspect its persisted session JSONL using the
+[OMP child model provenance procedure](../pstack-pi/references/runtime.md#omp-child-model-provenance).
+
+If the host lacks per-child model selection, report that no role configuration
+was written or activated. Name the missing capability. Only explain how to switch
+the active model when the current host documents a model-switching command.
 
 ### 7. Offer a verification skill (optional)
 

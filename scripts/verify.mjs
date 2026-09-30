@@ -1,5 +1,6 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
+import { resolveSkillReference } from "./skill-references.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const skillsRoot = join(root, "skills");
@@ -76,12 +77,17 @@ for (const name of requiredSkills) {
 }
 
 const markdownFiles = [];
+const skillFiles = new Set();
 const collect = async (directory) => {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     if (entry.name === "node_modules") continue;
     const path = join(directory, entry.name);
-    if (entry.isDirectory()) await collect(path);
-    else if (entry.name.endsWith(".md")) markdownFiles.push(path);
+    if (entry.isDirectory()) {
+      await collect(path);
+    } else {
+      skillFiles.add(relative(skillsRoot, path));
+      if (entry.name.endsWith(".md")) markdownFiles.push(path);
+    }
   }
 };
 await collect(skillsRoot);
@@ -101,6 +107,12 @@ for (const path of markdownFiles) {
       await stat(targetPath);
     } catch {
       failures.push(`${relative(root, path)} references missing ${target}`);
+    }
+  }
+  for (const match of source.matchAll(/skill:\/\/[A-Za-z0-9._/-]+/gu)) {
+    const uri = match[0].replace(/[.,;:!?]+$/u, "");
+    if (!resolveSkillReference(uri, skillFiles)) {
+      failures.push(`${relative(root, path)} references missing ${uri}`);
     }
   }
 }

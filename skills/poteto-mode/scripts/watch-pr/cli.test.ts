@@ -163,6 +163,49 @@ describe("main", () => {
     );
   });
 
+  it("returns status once without retrying when GitHub reports no checks", async () => {
+    for (const pretty of [false, true]) {
+      const reader = fakeReader({
+        fastPath: {
+          kind: "unusable",
+          exitCode: 1,
+          stderr: "no checks reported on the 'feature' branch",
+        },
+        rollupPages: [{ checks: [], endCursor: null }],
+        commitRollups: [{ oid: "head", state: null }],
+      });
+      const harness = testRuntime(reader);
+      const code = await main(
+        [
+          "--owner",
+          "klntsky",
+          "--repo",
+          "slopgrid",
+          "--pr",
+          "8",
+          "--status-only",
+          ...(pretty ? ["--pretty"] : []),
+        ],
+        harness.runtime
+      );
+      expect(code).toBe(0);
+      expect(harness.stderr).toEqual([]);
+      expect(harness.stdout).toHaveLength(1);
+      expect(reader.calls.filter((call) => call === "checksFastPath")).toHaveLength(1);
+      if (pretty) {
+        expect(harness.stdout[0]).toContain("no checks");
+        expect(harness.stdout[0]).not.toContain("RETRY");
+      } else {
+        expect(JSON.parse(harness.stdout[0])).toMatchObject({
+          kind: "STATUS",
+          terminal: true,
+          exitCode: 0,
+          rows: [{ kind: "open", ci: { kind: "ci-clean", all: [] } }],
+        });
+      }
+    }
+  });
+
   it("bypasses the queue machine for queued-stack status-only", async () => {
     const reader = fakeReader();
     const harness = testRuntime(reader);

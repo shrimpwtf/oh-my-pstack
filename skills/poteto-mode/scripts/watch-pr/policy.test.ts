@@ -88,6 +88,52 @@ describe("readiness truth table", () => {
       blocker: { kind: "failing-checks" },
     });
   });
+
+  it("treats confirmed no-checks PRs as ready without inventing passing CI", async () => {
+    const snapshot = await readSnapshot({
+      reader: fakeReader({
+        fastPath: { kind: "unusable", exitCode: 1, stderr: "no checks reported" },
+        rollupPages: [{ checks: [], endCursor: null }],
+        commitRollups: [{ oid: "head", state: null }],
+      }),
+      context: context(1),
+      pendingHistory: "include",
+      allowDraft: false,
+    });
+    expect(snapshot).toMatchObject({
+      kind: "open",
+      ci: {
+        kind: "ci-clean",
+        source: "graphql-rollup",
+        all: [],
+        hadPreviousPassingCi: false,
+      },
+      reviewAutomationRunning: false,
+    });
+    expect(classifyPr(snapshot).kind).toBe("ready");
+  });
+
+  it("preserves GitHub CI refusals even when visible checks are empty", async () => {
+    for (const state of ["FAILURE", "ERROR"] satisfies readonly RollupState[]) {
+      const snapshot = await readSnapshot({
+        reader: fakeReader({
+          facts: { mergeStateStatus: "BLOCKED" },
+          fastPath: { kind: "checks", checks: [] },
+          commitRollups: [{ oid: "head", state }],
+        }),
+        context: context(1),
+        pendingHistory: "include",
+        allowDraft: false,
+      });
+      expect(classifyPr(snapshot)).toMatchObject({
+        kind: "blocker",
+        blocker: {
+          kind: "failing-checks",
+          ci: { kind: "ci-github-rejected", all: [] },
+        },
+      });
+    }
+  });
 });
 
 describe("snapshot query planning", () => {

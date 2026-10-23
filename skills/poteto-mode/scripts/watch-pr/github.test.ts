@@ -1,6 +1,5 @@
 import { describe, expect, it } from "bun:test";
 import {
-  ChecksUnavailable,
   WatcherQueryError,
   mapRollupNode,
   orderStack,
@@ -15,6 +14,7 @@ import {
   passingCheck,
   pendingCheck,
 } from "./fakes.test-helper.ts";
+import type { QueryFailure } from "./types.ts";
 import { parsePrNumber } from "./types.ts";
 
 const context = {
@@ -63,18 +63,85 @@ describe("checks fallback chain", () => {
     expect(reader.calls).toEqual(["checksFastPath", "checkRollupPage:null"]);
   });
 
-  it("fails closed when both paths are empty", async () => {
+  it("accepts an empty successful rollup after an unusable fast path", async () => {
     const reader = fakeReader({
       fastPath: {
         kind: "unusable",
-        exitCode: 8,
-        stderr: "credential cannot read checks",
+        exitCode: 1,
+        stderr: "no checks reported on the 'feature' branch",
       },
+      rollupPages: [{ checks: [], endCursor: null }],
     });
-    await expect(resolveChecks(reader, context)).rejects.toBeInstanceOf(
-      ChecksUnavailable
-    );
+    expect(await resolveChecks(reader, context)).toEqual({
+      source: "graphql-rollup",
+      checks: [],
+    });
     expect(reader.calls).toEqual(["checksFastPath", "checkRollupPage:null"]);
+  });
+
+  it("accepts empty successful results from both paths", async () => {
+    const reader = fakeReader({
+      fastPath: { kind: "checks", checks: [] },
+      rollupPages: [
+        { checks: [], endCursor: "next" },
+        { checks: [], endCursor: null },
+      ],
+    });
+    expect(await resolveChecks(reader, context)).toEqual({
+      source: "graphql-rollup",
+      checks: [],
+    });
+    expect(reader.calls).toEqual([
+      "checksFastPath",
+      "checkRollupPage:null",
+      "checkRollupPage:next",
+    ]);
+  });
+
+  it("propagates failed GraphQL queries instead of reporting no checks", async () => {
+    const failures: readonly QueryFailure[] = [
+      {
+        kind: "command-exit",
+        retryable: true,
+        code: 1,
+        detail: "credential cannot read checks",
+      },
+      { kind: "json-parse", retryable: true, detail: "invalid JSON" },
+      { kind: "missing-key", retryable: true, detail: "missing commits.nodes" },
+    ];
+    for (const failure of failures) {
+      const error = new WatcherQueryError(failure);
+      const reader = {
+        ...fakeReader({
+          fastPath: { kind: "unusable", exitCode: 1, stderr: "" },
+        }),
+        async checkRollupPage() {
+          throw error;
+        },
+      };
+      await expect(resolveChecks(reader, context)).rejects.toBe(error);
+    }
+  });
+
+  it("does not return partial checks when a later rollup page fails", async () => {
+    const error = new WatcherQueryError({
+      kind: "command-exit",
+      retryable: true,
+      code: 1,
+      detail: "GraphQL unavailable",
+    });
+    const paginated = fakeReader({
+      fastPath: { kind: "checks", checks: [] },
+      rollupPages: [{ checks: [passingCheck()], endCursor: "next" }],
+    });
+    const reader = {
+      ...paginated,
+      async checkRollupPage(requested: typeof context, after: string | null) {
+        if (after !== null) throw error;
+        return paginated.checkRollupPage(requested, after);
+      },
+    };
+    await expect(resolveChecks(reader, context)).rejects.toBe(error);
   });
 });
 

@@ -21,12 +21,6 @@ export class WatcherQueryError extends Error {
     this.failure = failure;
   }
 }
-export class ChecksUnavailable extends WatcherQueryError {
-  constructor(detail: string) {
-    super({ kind: "checks-unavailable", retryable: true, detail });
-    this.name = "ChecksUnavailable";
-  }
-}
 const firstLine = (value: string): string =>
   value.trim().split(/\r?\n/, 1)[0]?.slice(0, 240) ?? "";
 function run(argv: readonly [string, ...string[]]): Promise<CommandResult> {
@@ -615,13 +609,7 @@ export async function resolveChecks(
     checks.push(...page.checks);
     after = page.endCursor;
   } while (after !== null);
-  const fallback = nonEmpty(checks);
-  if (fallback !== null) return { source: "graphql-rollup", checks: fallback };
-  const suffix =
-    fast.kind === "unusable"
-      ? `fast path exit=${fast.exitCode}; GraphQL rollup was empty${firstLine(fast.stderr) ? `; ${firstLine(fast.stderr)}` : ""}`
-      : "fast path and GraphQL rollup were empty";
-  throw new ChecksUnavailable(`could not read PR checks: ${suffix}`);
+  return { source: "graphql-rollup", checks };
 }
 export async function resolveContext(args: {
   readonly reader: T.GitHubReader;

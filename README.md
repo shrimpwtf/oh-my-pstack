@@ -193,6 +193,12 @@ bunx tsc --project skills/poteto-mode/scripts/watch-pr/tsconfig.json --noEmit --
 `npm run verify` checks skill inventory, frontmatter, local references, manifests,
 the upstream lock, and forbidden vendor-specific runtime bindings.
 
+The PR watcher falls back to GraphQL when `gh pr checks` cannot return checks.
+A successful empty rollup means the PR has no checks, not that the query failed.
+JSON output retains an empty check list, and `--pretty` displays `no checks`.
+GitHub-side CI refusals still block readiness. Failed commands, invalid JSON, and
+missing response fields still follow the query-error retry policy.
+
 ## Host contract
 
 Read `skills/pstack-pi/references/runtime.md` before adapting a workflow to a new
